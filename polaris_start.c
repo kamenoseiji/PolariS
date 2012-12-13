@@ -38,7 +38,17 @@ main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-
+	sleep(1);
+//------------------------------------------ Start S-part
+	for(index=0; index<param_ptr->num_st; index++){
+		if( fork() == 0){
+			pid = getpid(); sprintf(cmd[0], "shm_segdata"); sprintf(cmd[1], "%d", index);
+			printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
+			if( execl( SHM_SEGDATA, cmd[0], cmd[1], (char *)NULL ) == -1){
+				perror("Can't Create Chiled Proces!!\n"); return(-1);
+			}
+		}
+	}
 
     return(0);
 }

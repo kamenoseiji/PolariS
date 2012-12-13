@@ -76,3 +76,4 @@ struct	SHM_PARAM{
 //-------- Chiled Processes
 #define SHM_ALLOC	"/usr/local/custom/bin/shm_alloc"
 #define K5_SAMPLE	"/usr/local/custom/bin/k5sample_store"
+#define SHM_SEGDATA	"/usr/local/custom/bin/shm_segdata"
