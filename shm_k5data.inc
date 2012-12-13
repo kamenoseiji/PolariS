@@ -50,6 +50,7 @@ struct	SHM_PARAM{
 	int		qbit;				// Quantization bits (1, 2, 4, or 8)
 	int		fsample;			// Sampling Frequency [Hz]
 	int		seg_len;			// 1-segment length
+	int		seg_num;			// Number of segments in 1 sec
 
 	//-------- Process ID
 	int		pid_shm_alloc;		// Process ID

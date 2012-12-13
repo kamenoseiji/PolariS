@@ -4,6 +4,7 @@
 //	Created: 2012/11/8
 //
 #include "shm_k5data.inc"
+#include "k5dict.inc"
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/tdsio.h>
@@ -68,6 +69,11 @@ main(
 	rv = ioctl(fd_in, TDSIO_SAMPLING_START);  printf("TDSIO_SAMPLING_START result in %d\n", rv);
 
 	param_ptr->sd_len = 32e6;							// Size of 1-sec sampling data [bytes]
+	param_ptr->fsample= K5HEAD_FS[fsample]*1000;		// Sampling frequency [Hz]
+	param_ptr->num_st = K5HEAD_CH[num_IF];				// Number of IFs
+	param_ptr->qbit	  = K5HEAD_QB[qbit];				// Quantization Bits
+	param_ptr->seg_len= MAX_seg_len;					// Segment length 
+	param_ptr->seg_num= MAX_seg_sec;					// Number of segments in 1 sec
 	num_read_cycle = param_ptr->sd_len / K5FIFO_SIZE;	// Number of read cycles
 	read_fraction  = param_ptr->sd_len % K5FIFO_SIZE;	// Fraction bytes
 	param_ptr->validity |= ACTIVE;		// Set Sampling Activity Bit to 1
@@ -96,7 +102,7 @@ main(
 		}
 		rv = read(fd_in, shm_write_ptr, read_fraction); shm_write_ptr += rv;
 	    //-------- Semaphore for Fiest Half--------
-		for(index=5; index<8; index++){
+		for(index=4; index<8; index++){
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 			semop(param_ptr->sem_data_id, &sops, 1);
 		}
