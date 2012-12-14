@@ -5,11 +5,6 @@
 //
 #include "shm_k5data.inc"
 #include "k5dict.inc"
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/ipc.h>
-#include <sys/types.h>
-#include <sys/shm.h>
 #define	IF_index	1		// Command line arguments
 #define	ARGNUM		2		// Number of arguments
 
@@ -61,7 +56,7 @@ main(
 //		printf("segment %d : offset = %d  overlap = %d\n", index_seg, offset[index_seg], overlap[index_seg]);
 	}
 
-	seginit_ptr += (index_if* param_ptr->seg_num* param_ptr->seg_num);	// Write Pointer Offset
+	seginit_ptr += (index_if* param_ptr->seg_num* param_ptr->seg_len / 2);	// Write Pointer Offset
 //------------------------------------------ K5 Header and Data
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
@@ -87,8 +82,12 @@ main(
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}
-			
-		printf(" SEM for IF %d --- first half copied!!\n", index_if);
+//		printf(" SEM for IF %d --- first half copied!!\n", index_if);
+		sops.sem_num = (ushort)8; sops.sem_op = (short)1; sops.sem_flg = (short)0;
+		semop( param_ptr->sem_data_id, &sops, 1);
+
+
+		segdata_ptr = seginit_ptr + SEGDATA_SIZE/(2* sizeof(float));	// Move to the pointer of latter half
 
 		// Wait for Semaphore
 		sops.sem_num = (ushort)(4+index_if); sops.sem_op = (short)-1; sops.sem_flg = (short)0;
@@ -104,7 +103,9 @@ main(
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}
-		printf(" SEM for IF %d --- latter half copied!!\n", index_if);
+//		printf(" SEM for IF %d --- latter half copied!!\n", index_if);
+		sops.sem_num = (ushort)9; sops.sem_op = (short)1; sops.sem_flg = (short)0;
+		semop( param_ptr->sem_data_id, &sops, 1);
 	}
 //------------------------------------------ RELEASE the SHM
     return(0);

@@ -19,7 +19,7 @@
 #define	XSPEC_KEY		0x0100
 
 //-------- Shared Memory Size
-#define SEM_NUM			8			// Number of Semaphores
+#define SEM_NUM			16			// Number of Semaphores
 #define	K5FIFO_SIZE		65536		// 64 kbytes
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	33554432	// 256 Mbit = 32 MB
@@ -77,3 +77,4 @@ struct	SHM_PARAM{
 #define SHM_ALLOC	"/usr/local/custom/bin/shm_alloc"
 #define K5_SAMPLE	"/usr/local/custom/bin/k5sample_store"
 #define SHM_SEGDATA	"/usr/local/custom/bin/shm_segdata"
+#define CUDA_FFT	"/usr/local/custom/bin/cuda_fft_xspec"
