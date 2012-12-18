@@ -10,7 +10,7 @@ CCOMPL=gcc $(CFLAGS)
 NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
-PROGS=	polaris_start shm_alloc shm_init shm_param_view k5sample_store cuda_fft_xspec shm_segdata
+PROGS=	polaris_start shm_alloc shm_init shm_param_view k5sample_store cuda_fft_xspec shm_segdata shm_spec_view
 GRLIBS= -L/usr/X11R6/lib -lX11
 MATH=	-lm
 FFTLIB= -lcufft
@@ -20,6 +20,7 @@ OBJ_start= polaris_start.o shm_access.o
 OBJ_shm_alloc= shm_alloc.o shm_init_create.o shm_access.o erase_shm.o
 OBJ_shm_init = shm_init.o shm_access.o
 OBJ_shm_view = shm_param_view.o shm_access.o timesystem.o
+OBJ_spec_view = shm_spec_view.o shm_access.o
 OBJ_k5sample_store = k5sample_store.o shm_access.o
 OBJ_shm_segdata = shm_segdata.o
 OBJ_cuda_fft = cuda_fft_xspec.o shm_access.o
@@ -41,6 +42,9 @@ shm_param_view : $(OBJ_shm_view)
 
 shm_segdata : $(OBJ_shm_segdata)
 	$(CCOMPL) -o $@ $(OBJ_shm_segdata)
+
+shm_spec_view : $(OBJ_spec_view)
+	$(CCOMPL) -o $@ $(OBJ_spec_view)
 
 cuda_fft_xspec : $(OBJ_cuda_fft)
 	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB) $(CUDALIB)
@@ -71,6 +75,7 @@ shm_param_view.o:	shm_param_view.c	shm_k5data.inc
 shm_segdata.o:		shm_segdata.c		shm_k5data.inc
 shm_access.o:		shm_access.c		shm_k5data.inc
 shm_init_create.o:	shm_init_create.c	shm_k5data.inc
+shm_spec_view.o:	shm_spec_view.c	shm_k5data.inc
 timesystem.o:		timesystem.c
 
 #----------------- End of File --------------------

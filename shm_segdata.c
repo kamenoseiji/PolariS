@@ -44,7 +44,8 @@ main(
 	bitmask = k5bitmask[index_if];		// to pick 4-bit from K5 data
 	bitshift= k5bitshift[index_if];		// bitshift for 4-bit data
 
-	mean_offset = (param_ptr->fsample - param_ptr->seg_len) / (param_ptr->seg_num - 1);
+	//-------- Parameters for S-part format
+	mean_offset = (param_ptr->fsample - param_ptr->seg_len) / (param_ptr->seg_num - 1);	// Gap between segments
 	fraction = (param_ptr->fsample - param_ptr->seg_len) % mean_offset;
 	offset[0] = 0;	overlap[0] = 0;
 	printf("Mean offset = %d, fraction = %d\n", mean_offset, fraction);
@@ -52,8 +53,6 @@ main(
 		offset[index_seg] = mean_offset;
 		if( index_seg % (param_ptr->seg_num / fraction) == 1 ){	offset[index_seg] ++;}
 		overlap[index_seg] = param_ptr->seg_len - offset[index_seg];
-
-//		printf("segment %d : offset = %d  overlap = %d\n", index_seg, offset[index_seg], overlap[index_seg]);
 	}
 
 	seginit_ptr += (index_if* param_ptr->seg_num* param_ptr->seg_len / 2);	// Write Pointer Offset
@@ -75,14 +74,12 @@ main(
 		//-------- First Half
 		for( index_seg=1; index_seg<param_ptr->seg_num/2; index_seg ++){
 			memcpy(segdata_ptr, segdata_ptr - overlap[index_seg], overlap[index_seg]* sizeof(float));
-//			printf("Seg %d : Copied duplicated overlap : addr=%X\n", index_seg, segdata_ptr);
 			segdata_ptr += overlap[index_seg];
 			for(index_smp=overlap[index_seg]; index_smp<param_ptr->seg_len; index_smp ++){
 				*segdata_ptr = wt4[(*k5data_ptr & bitmask) >> bitshift];
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}
-//		printf(" SEM for IF %d --- first half copied!!\n", index_if);
 		sops.sem_num = (ushort)8; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 
