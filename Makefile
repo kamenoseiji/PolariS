@@ -20,7 +20,7 @@ OBJ_start= polaris_start.o shm_access.o
 OBJ_shm_alloc= shm_alloc.o shm_init_create.o shm_access.o erase_shm.o
 OBJ_shm_init = shm_init.o shm_access.o
 OBJ_shm_view = shm_param_view.o shm_access.o timesystem.o
-OBJ_spec_view = shm_spec_view.o shm_access.o
+OBJ_spec_view = shm_spec_view.o shm_access.o cpg_setup.o cpg_spec.o
 OBJ_k5sample_store = k5sample_store.o shm_access.o
 OBJ_shm_segdata = shm_segdata.o
 OBJ_cuda_fft = cuda_fft_xspec.o shm_access.o
@@ -44,7 +44,7 @@ shm_segdata : $(OBJ_shm_segdata)
 	$(CCOMPL) -o $@ $(OBJ_shm_segdata)
 
 shm_spec_view : $(OBJ_spec_view)
-	$(CCOMPL) -o $@ $(OBJ_spec_view)
+	$(FCOMPL) -o $@ $(OBJ_spec_view) $(CPGPLOT) $(PGPLOT) $(GRLIBS)
 
 cuda_fft_xspec : $(OBJ_cuda_fft)
 	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB) $(CUDALIB)
@@ -77,5 +77,7 @@ shm_access.o:		shm_access.c		shm_k5data.inc
 shm_init_create.o:	shm_init_create.c	shm_k5data.inc
 shm_spec_view.o:	shm_spec_view.c	shm_k5data.inc
 timesystem.o:		timesystem.c
+cpg_setup.o:		cpg_setup.c
+cpg_spec.o:			cpg_spec.c
 
 #----------------- End of File --------------------

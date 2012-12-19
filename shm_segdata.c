@@ -8,8 +8,6 @@
 #define	IF_index	1		// Command line arguments
 #define	ARGNUM		2		// Number of arguments
 
-// int	shm_access(key_t shm_key, size_t shm_size, int *shrd_id, int *shm_ptr);
-
 main(
 	int		argc,			// Number of Arguments
 	char	**argv )		// Pointer to Arguments
@@ -25,7 +23,8 @@ main(
 	int		overlap[128];				// Number of samples to overlap
 	int		offset[128];				// Number of samples for segment offset
 	int		mean_offset, fraction;
-	short	bitmask, bitshift;			// Bit shift and mask
+	int		bitshift;					// Bit Shift to pick up the IF data
+	short	bitmask = 0x000f;			// 4-Bit mask to pick up the IF data
 //-------- Argument Check
 	if(argc < ARGNUM){
 		perror(" IF number must be specified!!\n");
@@ -41,21 +40,20 @@ main(
 
 	//-------- IF-related parameters
 	index_if = atoi(argv[IF_index]);	// IF# (0, 1, 2, or 3)
-	bitmask = k5bitmask[index_if];		// to pick 4-bit from K5 data
 	bitshift= k5bitshift[index_if];		// bitshift for 4-bit data
 
 	//-------- Parameters for S-part format
-	mean_offset = (param_ptr->fsample - param_ptr->seg_len) / (param_ptr->seg_num - 1);	// Gap between segments
-	fraction = (param_ptr->fsample - param_ptr->seg_len) % mean_offset;
+	mean_offset = (param_ptr->fsample - param_ptr->segLen) / (param_ptr->segNum - 1);	// Gap between segments
+	fraction = (param_ptr->fsample - param_ptr->segLen) % mean_offset;
 	offset[0] = 0;	overlap[0] = 0;
 	printf("Mean offset = %d, fraction = %d\n", mean_offset, fraction);
-	for( index_seg = 1; index_seg < param_ptr->seg_num; index_seg ++){
+	for( index_seg = 1; index_seg < param_ptr->segNum; index_seg ++){
 		offset[index_seg] = mean_offset;
-		if( index_seg % (param_ptr->seg_num / fraction) == 1 ){	offset[index_seg] ++;}
-		overlap[index_seg] = param_ptr->seg_len - offset[index_seg];
+		if( index_seg % (param_ptr->segNum / fraction) == 1 ){	offset[index_seg] ++;}
+		overlap[index_seg] = param_ptr->segLen - offset[index_seg];
 	}
 
-	seginit_ptr += (index_if* param_ptr->seg_num* param_ptr->seg_len / 2);	// Write Pointer Offset
+	seginit_ptr += (index_if* param_ptr->segNum* param_ptr->segLen / 2);	// Write Pointer Offset
 //------------------------------------------ K5 Header and Data
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
@@ -67,16 +65,18 @@ main(
 		semop( param_ptr->sem_data_id, &sops, 1);
 
 		//-------- First Segment --------
-		for(index_smp=0; index_smp<param_ptr->seg_len; index_smp ++){
-			*segdata_ptr = wt4[(*k5data_ptr & bitmask) >> bitshift]; segdata_ptr ++; k5data_ptr ++;
+		for(index_smp=0; index_smp<param_ptr->segLen; index_smp ++){
+			*segdata_ptr = wt4[(*k5data_ptr >> bitshift) & bitmask];
+			segdata_ptr ++; k5data_ptr ++;
+
 		}
 
 		//-------- First Half
-		for( index_seg=1; index_seg<param_ptr->seg_num/2; index_seg ++){
+		for( index_seg=1; index_seg<param_ptr->segNum/2; index_seg ++){
 			memcpy(segdata_ptr, segdata_ptr - overlap[index_seg], overlap[index_seg]* sizeof(float));
 			segdata_ptr += overlap[index_seg];
-			for(index_smp=overlap[index_seg]; index_smp<param_ptr->seg_len; index_smp ++){
-				*segdata_ptr = wt4[(*k5data_ptr & bitmask) >> bitshift];
+			for(index_smp=overlap[index_seg]; index_smp<param_ptr->segLen; index_smp ++){
+				*segdata_ptr = wt4[(*k5data_ptr >> bitshift) & bitmask];
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}
@@ -91,12 +91,12 @@ main(
 		semop( param_ptr->sem_data_id, &sops, 1);
 
 		//-------- Last Half
-		for( index_seg=param_ptr->seg_num/2; index_seg< param_ptr->seg_num; index_seg ++){
+		for( index_seg=param_ptr->segNum/2; index_seg< param_ptr->segNum; index_seg ++){
 			memcpy(segdata_ptr, segdata_ptr - overlap[index_seg], overlap[index_seg]* sizeof(float));
 //			printf("Seg %d : Copied duplicated overlap : addr=%X\n", index_seg, segdata_ptr);
 			segdata_ptr += overlap[index_seg];
-			for(index_smp=overlap[index_seg]; index_smp<param_ptr->seg_len; index_smp ++){
-				*segdata_ptr = wt4[(*k5data_ptr & bitmask) >> bitshift];
+			for(index_smp=overlap[index_seg]; index_smp<param_ptr->segLen; index_smp ++){
+				*segdata_ptr = wt4[(*k5data_ptr >> bitshift) & bitmask];
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}

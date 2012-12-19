@@ -23,15 +23,16 @@
 #define	K5FIFO_SIZE		65536		// 64 kbytes
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	33554432	// 256 Mbit = 32 MB
-#define	MAX_seg_len		262144		// Segment size (2^18)
+#define	SegLen			262144		// Segment size (2^18)
 #define	NFFT			262144		// FFT points
+#define	NFFT2			131072		// Half of FFT points
 #define	NFFTC			131073		// NFFT/2+1 = Number of spectral points
-#define	MAX_seg_sec		128			// # of segments per sec (128)
-#define	Nseg_halfsec	64			// # of segments per 0.5 sec (64)
-#define	MAX_IF			4			// Number of IF
-#define	MAX_CROSS		8			// <XX*>, <XY*>, <YX*>, <YY*>
-#define	SEGDATA_SIZE	MAX_IF* MAX_seg_len* MAX_seg_sec* sizeof(float)
-#define	XSPEC_SIZE		MAX_CROSS* NFFTC* sizeof(float)
+#define	NsegSec			128			// # of segments per sec (128)
+#define	NsegSec2		64			// # of segments per 1/2 sec (64)
+#define	Nif				4			// Number of IF
+#define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
+#define	SEGDATA_SIZE	Nif* SegLen* NsegSec* sizeof(float)
+#define	XSPEC_SIZE		Nif* Ncross* NFFT2* sizeof(float)
 
 //-------- Memory Map
 #define	SEG_SAMPLE_OFFSET	MAX_SAMPLE_BUF
@@ -52,8 +53,8 @@ struct	SHM_PARAM{
 	int		num_st;				// Total number of streams (IFs)
 	int		qbit;				// Quantization bits (1, 2, 4, or 8)
 	int		fsample;			// Sampling Frequency [Hz]
-	int		seg_len;			// 1-segment length
-	int		seg_num;			// Number of segments in 1 sec
+	int		segLen;				// 1-segment length
+	int		segNum;				// Number of segments in 1 sec
 
 	//-------- Process ID
 	int		pid_shm_alloc;		// Process ID
@@ -94,3 +95,4 @@ struct	SHM_PARAM{
 #define K5_SAMPLE	"/usr/local/custom/bin/k5sample_store"
 #define SHM_SEGDATA	"/usr/local/custom/bin/shm_segdata"
 #define CUDA_FFT	"/usr/local/custom/bin/cuda_fft_xspec"
+#define SPEC_VIEW	"/usr/local/custom/bin/shm_spec_view"

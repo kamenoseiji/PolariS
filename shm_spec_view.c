@@ -5,6 +5,8 @@
 //
 #include "shm_k5data.inc"
 #include "k5dict.inc"
+#include <stdlib.h>
+#include <cpgplot.h>
 
 main(
 	int		argc,			// Number of Arguments
@@ -16,6 +18,8 @@ main(
 	int		index;
 	int		sod=0, hour=0, min=0, sec=0;// Second of day, hour, min, sec
 	float	*xspec_ptr;					// Pointer to Cross Spectra
+	float	*freq_ptr;					// Pointer to Frequency
+	float	freq_incr;					// Freqnecy increment
 //------------------------------------------ Access to the SHARED MEMORY
     //------- SHARED PARAMETERS --------
     if(shm_access(
@@ -26,29 +30,32 @@ main(
 		printf("Succeeded to access the shared parameter [%d]!\n",  param_ptr->shrd_param_id);
 	}
 	xspec_ptr = shmat(param_ptr->shrd_xspec_id, NULL, SHM_RDONLY);
-//------------------------------------------ Browse
-#ifdef HIDOI
-	printf("-------- Param IDs --------\n");
-	printf(" PARAM   K5DATA  SEGDATA    XSPEC\n");
-	printf("%06d   %06d   %06d   %06d\n \n", param_ptr->shrd_param_id, param_ptr->shrd_k5data_id, param_ptr->shrd_segdata_id, param_ptr->shrd_xspec_id);
-
-#endif
 //------------------------------------------ K5 Header and Data
 
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
+	cpgbeg(1, "/xserv", 1, 1);
+	cpg_setup(param_ptr);
+	freq_ptr = (float *)malloc(NFFT2* sizeof(float));
+	freq_incr = (float)(param_ptr->fsample / 2 / NFFT2);
+	for(index=0; index<NFFT2; index ++){
+		freq_ptr[index] = -0.5* freq_incr + index* freq_incr;
+	}
+
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 
 		//-------- Wait for Semaphore
-		printf("Wait for Semaphore\n");
 		sops.sem_num = (ushort)SEM_FX;	sops.sem_op = (short)-1;	sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 
 		printf("%7.2e %7.2e %7.2e %7.2e %7.2e %7.2e %7.2e %7.2e\n",
 			xspec_ptr[0], xspec_ptr[1], xspec_ptr[2], xspec_ptr[3],
 			xspec_ptr[4], xspec_ptr[5], xspec_ptr[6], xspec_ptr[7]);
+		cpg_spec(param_ptr, freq_ptr, xspec_ptr);
 
 	}
+	cpgend();
 //------------------------------------------ RELEASE the SHM
+	free(freq_ptr);
     return(0);
 }

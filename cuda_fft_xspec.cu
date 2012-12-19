@@ -38,11 +38,11 @@ __global__ void complexMultConjVec(		// calculate a x b*
 
 __global__ void complexPowerVec(		// calculate a x a*
 	float2	*vec_in,		// Input vector
-	float	*vec_out,
-	int		length)
+	float	*vec_out,		// Output vector
+	int		length)			// Number of elements
 {
 	int tid = blockIdx.x* blockDim.x + threadIdx.x;
-    if((tid >= 0) && (tid < length)){
+	if((tid >= 0) && (tid < length)){
 		vec_out[tid] = complexMod(vec_in[tid]);
 	}
 }
@@ -70,6 +70,32 @@ __global__ void accumComplex(	// a <- a + b
     }
 }
 
+__global__ void accumPowerSpec(
+	float2	*vec_in,		// Input vector
+	float	*vec_out,		// Output vector
+	int	Nx, int	Ny)
+{
+    int ix = blockIdx.x* blockDim.x + threadIdx.x;
+    int iy;
+
+	for(iy=0; iy<Ny; iy++){ vec_out[ix] += complexMod(vec_in[Nx* iy + ix]); }
+}
+
+__global__ void accumCrossSpec(
+	float2	*vec_in_a,		// Input vector
+	float2	*vec_in_b,		// Input vector
+	float2	*vec_out,		// Output vector
+	int	Nx, int	Ny)
+{
+    int ix = blockIdx.x* blockDim.x + threadIdx.x;
+    int iy;
+
+	for(iy=0; iy<Ny; iy++){
+		vec_out[ix].x += complexMultConj(vec_in_a[Nx* iy + ix], vec_in_b[Nx* iy + ix]).x;
+		vec_out[ix].y += complexMultConj(vec_in_a[Nx* iy + ix], vec_in_b[Nx* iy + ix]).y;
+	}
+}
+
 
 main(
 	int		argc,			// Number of Arguments
@@ -77,39 +103,39 @@ main(
 {
 	int		shrd_param_id;				// Shared Memory ID
 	int		if_index;					// Index for IF
-	int		seg_index;					// Index for Segment
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
-	float	*segdata_ptr;				// Pointer to sampled data
+	float	*init_segdata_ptr, *segdata_ptr;				// Pointer to sampled data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
 
-	cufftHandle		cufft_plan;
-	cufftComplex	*cuSpec_data;
-	cufftReal		*cuReal_data;
-	cufftReal		*cuPowerSpecSeg;
-	cufftComplex	*cuCrossSpecSeg;
-	cufftReal		*cuPowerSpec;
-	cufftComplex	*cuCrossSpec;
+	dim3			Dg, Db(512,1, 1);	// Grid and Block size
+	cufftHandle		cufft_plan;			// 1-D FFT Plan, to be used in cufft
+	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
+	cufftComplex	*cuCrossSpec;		// (crosscorrelation) Cross Spectrum
+
+	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
+	cufftReal		*cuPowerSpec;		// (autocorrelation) Power Spectrum
+
 //------------------------------------------ Prepare for CuFFT
-	cudaMalloc( (void **)&cuReal_data, MAX_IF* Nseg_halfsec* MAX_seg_len * sizeof(cufftReal) );
-	cudaMalloc( (void **)&cuSpec_data, MAX_IF* Nseg_halfsec* NFFTC* sizeof(cufftComplex) );
+	cudaMalloc( (void **)&cuRealData, Nif* NsegSec2* SegLen * sizeof(cufftReal) );
+	cudaMalloc( (void **)&cuSpecData, Nif* NsegSec2* NFFTC* sizeof(cufftComplex) );
 
-	cudaMalloc( (void **)&cuPowerSpecSeg, MAX_IF* Nseg_halfsec* NFFTC* sizeof(float) );
-	cudaMalloc( (void **)&cuCrossSpecSeg, MAX_IF/2* Nseg_halfsec* NFFTC* sizeof(float2) );
+//	cudaMalloc( (void **)&cuPowerSpecSeg, Nif* NsegSec2* NFFT2* sizeof(float) );
+//	cudaMalloc( (void **)&cuCrossSpecSeg, Nif/2* NsegSec2* NFFTC* sizeof(float2) );
 
-	cudaMalloc( (void **)&cuPowerSpec, MAX_IF* NFFTC* sizeof(float));
-	cudaMalloc( (void **)&cuCrossSpec, MAX_IF/2* NFFTC* sizeof(float2));
+	cudaMalloc( (void **)&cuPowerSpec, Nif* NFFTC* sizeof(float));
+	cudaMalloc( (void **)&cuCrossSpec, Nif/2* NFFTC* sizeof(float2));
 	if(cudaGetLastError() != cudaSuccess){
 		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1);
 	}
 
-	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nseg_halfsec* MAX_IF ) != CUFFT_SUCCESS){
+	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, NsegSec2* Nif ) != CUFFT_SUCCESS){
 		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1);
 	}
 //------------------------------------------ Access to the SHARED MEMORY
 	shrd_param_id = shmget( SHM_PARAM_KEY, sizeof(struct SHM_PARAM), 0444);
 	param_ptr = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
-	segdata_ptr = (float *)shmat(param_ptr->shrd_seg_id, NULL, SHM_RDONLY);
+	init_segdata_ptr = (float *)shmat(param_ptr->shrd_seg_id, NULL, SHM_RDONLY);
 	xspec_ptr   = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
 //------------------------------------------ K5 Header and Data
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
@@ -118,153 +144,109 @@ main(
 
 		//-------- Wait for the first half in the S-part
 		printf("FFT status EW\n");
-		sops.sem_num = (ushort)8; sops.sem_op = (short)-4; sops.sem_flg = (short)0;
+		sops.sem_num = (ushort)SEM_SEG_F; sops.sem_op = (short)-4; sops.sem_flg = (short)0;
         semop( param_ptr->sem_data_id, &sops, 1);
+		segdata_ptr = init_segdata_ptr;								// Move to the head of segmant data
 
 		//-------- FFT Time -> Freq for the first half
 		printf("FFT status ES\n");
 		cudaMemcpy(
-			cuReal_data,											// Segmant Data in GPU
+			cuRealData,												// Segmant Data in GPU
 			segdata_ptr,											// Segmant Data in Host
-			MAX_IF* Nseg_halfsec* MAX_seg_len * sizeof(cufftReal),	// Number of segments
+			Nif* NsegSec2* SegLen * sizeof(cufftReal),				// Number of segments
 			cudaMemcpyHostToDevice);
 
-		cufftExecR2C(cufft_plan, cuReal_data, cuSpec_data);			// FFT Time -> Freq
+		cufftExecR2C(cufft_plan, cuRealData, cuSpecData);			// FFT Time -> Freq
 
 		//---- Auto Corr
-		complexPowerVec<<<NFFTC,  Nseg_halfsec* MAX_IF>>>(
-			cuSpec_data,								// FFTed Spectra
-			cuPowerSpecSeg,							// Power Spectra
-			NFFTC* Nseg_halfsec* MAX_IF);
+		Dg.x=NFFT2/512; Dg.y=1; Dg.z=1;
+		cudaMemset( cuPowerSpec, 0, Nif* NFFT2* sizeof(float));		// Clear Power Spec
+		for(if_index=0; if_index<Nif; if_index++){
+			accumPowerSpec<<<Dg, Db>>>(
+				&cuSpecData[if_index* NsegSec2* NFFTC],
+				&cuPowerSpec[if_index* NFFT2],
+				NFFTC, NsegSec2);
+		}
+
+		//---- Cross Corr
+		Dg.x=NFFT2/512; Dg.y=1; Dg.z=1;
+		cudaMemset( cuCrossSpec, 0, Nif/2* NFFT2* sizeof(float2));	// Clear Power Spec
 
 		//---- Cross Corr for IF0 * IF2
-		complexMultConjVec<<<NFFTC, Nseg_halfsec>>>(
-			(float2 *)cuSpec_data,								// FFTed Spectra (IF0)
-			(float2 *)&cuSpec_data[2* NFFTC* Nseg_halfsec],		// FFTed Spectra (IF2)
-			cuCrossSpecSeg,										// Cross Spectra
-			NFFTC* Nseg_halfsec);
+		accumCrossSpec<<<Dg, Db>>>(
+			(float2 *)cuSpecData,								// FFTed Spectra (IF0)
+			(float2 *)&cuSpecData[2* NsegSec2* NFFTC],			// FFTed Spectra (IF2)
+			cuCrossSpec,										// Cross Spectra
+			NFFTC, NsegSec2);
 
 		//---- Cross Corr for IF1 * IF3
-		complexMultConjVec<<<NFFTC, Nseg_halfsec>>>(
-			(float2 *)&cuSpec_data[3* NFFTC* Nseg_halfsec],		// FFTed Spectra (IF1)
-			(float2 *)&cuSpec_data[4* NFFTC* Nseg_halfsec],		// FFTed Spectra (IF3)
-			&cuCrossSpecSeg[Nseg_halfsec* NFFTC],				// Cross Spectra
-			NFFTC* Nseg_halfsec);
-
-		printf("FFT status EF\n");
-
-		//---- Accumulate power spectra
-		cudaMemset( cuPowerSpec, 0, MAX_IF* NFFTC* sizeof(float));	// Clear Power Spec
-		for(if_index=0; if_index<MAX_IF; if_index ++){
-			for(seg_index=0; seg_index<Nseg_halfsec; seg_index++){
-				accumReal<<<NFFTC, 1>>>(
-					cuPowerSpec,								// Accumulator Register
-					&cuPowerSpecSeg[(if_index* Nseg_halfsec +  seg_index)* NFFTC],
-					NFFTC); 
-			}
-		}
-
-		cudaMemcpy( xspec_ptr, cuPowerSpec, NFFTC* sizeof(float), cudaMemcpyDeviceToHost);
-		printf("%e %e\n", xspec_ptr[0], xspec_ptr[1]);
+		accumCrossSpec<<<Dg, Db>>>(
+			(float2 *)&cuSpecData[NsegSec2* NFFTC],				// FFTed Spectra (IF1)
+			(float2 *)&cuSpecData[3* NsegSec2* NFFTC],			// FFTed Spectra (IF3)
+			&cuCrossSpec[NFFT2],								// Cross Spectra
+			NFFTC, NsegSec2);
 
 
-#ifdef HIDOI
-		//---- Accumulate Cross spectra
-		cudaMemset( cuCrossSpec, 0, MAX_IF/2* NFFTC* sizeof(float2));	// Clear Cross Spec
-		for(seg_index=0; seg_index<Nseg_halfsec; seg_index++){
-			accumComplex<<<NFFTC, 1>>>(
-				cuCrossSpec,
-				&cuCrossSpecSeg[seg_index* NFFTC],
-				NFFTC); 
-
-			accumComplex<<<NFFTC, 1>>>(
-				&cuCrossSpec[NFFTC],
-				&cuCrossSpecSeg[(Nseg_halfsec + seg_index)* NFFTC],
-				NFFTC); 
-		}
-#endif
-
-		//-------- Latter Half --------
-		segdata_ptr += MAX_IF* MAX_seg_len* Nseg_halfsec;
-		//-------- Wait for the first half in the S-part
+		//-------- Wait for the Last half in the S-part
 		printf("FFT status OW\n");
-		sops.sem_num = (ushort)9; sops.sem_op = (short)-4; sops.sem_flg = (short)0;
+		segdata_ptr += Nif* NsegSec2* SegLen;
+		sops.sem_num = (ushort)SEM_SEG_L; sops.sem_op = (short)-4; sops.sem_flg = (short)0;
         semop( param_ptr->sem_data_id, &sops, 1);
 
+		//-------- FFT Time -> Freq for the last half
 		printf("FFT status OS\n");
 		cudaMemcpy(
-			cuReal_data,
-			segdata_ptr,
-			MAX_IF* Nseg_halfsec* MAX_seg_len * sizeof(cufftReal),
+			cuRealData,											// Segmant Data in GPU
+			segdata_ptr,										// Segmant Data in Host
+			Nif* NsegSec2* SegLen * sizeof(cufftReal),			// Number of segments
 			cudaMemcpyHostToDevice);
-		segdata_ptr -= MAX_IF* MAX_seg_len* Nseg_halfsec;
 
-		cufftExecR2C(cufft_plan, cuReal_data, cuSpec_data);			// FFT Time -> Freq
+		cufftExecR2C(cufft_plan, cuRealData, cuSpecData);		// FFT Time -> Freq
 
-#ifdef HIDOI
 		//---- Auto Corr
-		complexPowerVec<<<NFFTC,  MAX_IF* Nseg_halfsec>>>(
-			(float2 *)cuSpec_data,								// FFTed Spectra
-			cuPowerSpecSeg,										// Power Spectra
-			NFFTC* Nseg_halfsec* MAX_IF);
+		Dg.x=NFFT2/512; Dg.y=1; Dg.z=1;
+		for(if_index=0; if_index<Nif; if_index++){
+			accumPowerSpec<<<Dg, Db>>>(
+				&cuSpecData[if_index* NsegSec2* NFFTC],
+				&cuPowerSpec[if_index* NFFT2],
+				NFFTC, NsegSec2);
+		}
 
-		printf("Length=%d\n", NFFTC* Nseg_halfsec* MAX_IF);
+		//---- Cross Corr
+		Dg.x=NFFT2/512; Dg.y=1; Dg.z=1;
 
 		//---- Cross Corr for IF0 * IF2
-		complexMultConjVec<<<NFFTC, Nseg_halfsec>>>(
-			(float2 *)cuSpec_data,								// FFTed Spectra (IF0)
-			(float2 *)&cuSpec_data[2* NFFTC* Nseg_halfsec],		// FFTed Spectra (IF2)
-			(float2 *)cuCrossSpecSeg,							// Cross Spectra
-			NFFTC* Nseg_halfsec);
+		accumCrossSpec<<<Dg, Db>>>(
+			(float2 *)cuSpecData,								// FFTed Spectra (IF0)
+			(float2 *)&cuSpecData[2* NsegSec2* NFFTC],			// FFTed Spectra (IF2)
+			cuCrossSpec,										// Cross Spectra
+			NFFTC, NsegSec2);
 
 		//---- Cross Corr for IF1 * IF3
-		complexMultConjVec<<<NFFTC, Nseg_halfsec>>>(
-			(float2 *)&cuSpec_data[3* NFFTC* Nseg_halfsec],		// FFTed Spectra (IF1)
-			(float2 *)&cuSpec_data[4* NFFTC* Nseg_halfsec],		// FFTed Spectra (IF3)
-			(float2 *)&cuCrossSpecSeg[Nseg_halfsec* NFFTC],		// Cross Spectra
-			NFFTC* Nseg_halfsec);
+		accumCrossSpec<<<Dg, Db>>>(
+			(float2 *)&cuSpecData[NsegSec2* NFFTC],				// FFTed Spectra (IF1)
+			(float2 *)&cuSpecData[3* NsegSec2* NFFTC],			// FFTed Spectra (IF3)
+			&cuCrossSpec[NFFT2],								// Cross Spectra
+			NFFTC, NsegSec2);
 
-		printf("FFT status OF\n");
 
-		//---- Accumulate power spectra
-		for(if_index=0; if_index<MAX_IF; if_index ++){
-			for(seg_index=0; seg_index<Nseg_halfsec; seg_index++){
-				accumReal<<<NFFTC, 1>>>(
-					cuPowerSpec,								// Accumulator Register
-					&cuPowerSpecSeg[(if_index* Nseg_halfsec +  seg_index)* NFFTC],
-					NFFTC); 
-			}
-		}
-		//---- Accumulate Cross spectra
-		for(seg_index=0; seg_index<Nseg_halfsec; seg_index++){
-			accumComplex<<<NFFTC, 1>>>(
-				cuCrossSpec,
-				&cuCrossSpecSeg[seg_index* NFFTC],
-				NFFTC); 
-
-			accumComplex<<<NFFTC, 1>>>(
-				&cuCrossSpec[NFFTC],
-				&cuCrossSpecSeg[(Nseg_halfsec + seg_index)* NFFTC],
-				NFFTC); 
-		}
-#endif
-
-//		cudaMemcpy( xspec_ptr, cuPowerSpec, MAX_IF* NFFTC* sizeof(float), cudaMemcpyDeviceToHost);
-//		cudaMemcpy( &xspec_ptr[MAX_IF* NFFTC], cuCrossSpec, MAX_IF/2* NFFTC* sizeof(float), cudaMemcpyDeviceToHost);
+		//-------- Dump cross spectra to shared memory
+		cudaMemcpy( xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
+		cudaMemcpy( &xspec_ptr[Nif* NFFT2], cuCrossSpec, Nif/2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
 
 		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0;
-        semop( param_ptr->sem_data_id, &sops, 1);
+		semop( param_ptr->sem_data_id, &sops, 1);
 	}
 /*
 -------------------------------------------- RELEASE the SHM
 */
 	cufftDestroy(cufft_plan);
-	cudaFree(&cuReal_data);
-	cudaFree(&cuSpec_data);
-	cudaFree(&cuPowerSpecSeg);
-	cudaFree(&cuCrossSpecSeg);
-	cudaFree(&cuPowerSpec);
-	cudaFree(&cuCrossSpec);
+	cudaFree(cuRealData);
+	cudaFree(cuSpecData);
+//	cudaFree(cuPowerSpecSeg);
+//	cudaFree(cuCrossSpecSeg);
+	cudaFree(cuPowerSpec);
+	cudaFree(cuCrossSpec);
 
     return(0);
 }

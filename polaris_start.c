@@ -49,6 +49,15 @@ main(
 			}
 		}
 	}
+//------------------------------------------ Start Spectrum Viewer
+	if( fork() == 0){
+		pid = getpid(); sprintf(cmd[0], "shm_spec_view");
+		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
+		if( execl( SPEC_VIEW, cmd[0], (char *)NULL ) == -1){
+			perror("Can't Create Chiled Proces!!\n"); return(-1);
+		}
+	}
+
 //------------------------------------------ Start CUDA FFT
 	sleep(1);		// Wait 1 sec
 	if( fork() == 0){
