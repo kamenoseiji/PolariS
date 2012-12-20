@@ -9,4 +9,4 @@ int	K5HEAD_QB[] = {1, 2, 4, 8};	// 0:1-bit, 1:2-bit, 2:4-bit, 3:8-bit
 int	  k5bitshift[] = {0, 4, 8, 12};
 float wt1[] = {-1.0, 1.0};
 float wt2[] = {-3.0, -1.0, 1.0, 3.0};
-float wt4[] = {-7.5, -6.5, -5.5, -4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5}; // 4-bit quantization
+float wt4[] = {-7.5/NFFT, -6.5/NFFT, -5.5/NFFT, -4.5/NFFT, -3.5/NFFT, -2.5/NFFT, -1.5/NFFT, -0.5/NFFT, 0.5/NFFT, 1.5/NFFT, 2.5/NFFT, 3.5/NFFT, 4.5/NFFT, 5.5/NFFT, 6.5/NFFT, 7.5/NFFT}; // 4-bit quantization

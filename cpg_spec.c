@@ -39,7 +39,7 @@ int	cpg_spec(
 		/*-------- PLOT WINDOW --------*/
 		xmin = - 0.5*freq_incr;
 		xmax = xmin + ((double)NFFT2 - 0.5) * freq_incr;
-		ymin = 0.0;		ymax = 1.0e12;
+		ymin = 0.0;		ymax = 16;
 		cpgsvp(	0.067+xwin_incr*nx_index, 0.067+xwin_incr*(nx_index+0.9),
 				0.067+ywin_incr*ny_index, 0.067+ywin_incr*(ny_index+0.9));
 		cpgswin(xmin, xmax, ymin, ymax);

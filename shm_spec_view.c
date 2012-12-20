@@ -48,9 +48,9 @@ main(
 		sops.sem_num = (ushort)SEM_FX;	sops.sem_op = (short)-1;	sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 
-		printf("%7.2e %7.2e %7.2e %7.2e %7.2e %7.2e %7.2e %7.2e\n",
-			xspec_ptr[0], xspec_ptr[1], xspec_ptr[2], xspec_ptr[3],
-			xspec_ptr[4], xspec_ptr[5], xspec_ptr[6], xspec_ptr[7]);
+//		printf("%7.2e %7.2e %7.2e %7.2e %7.2e %7.2e %7.2e %7.2e\n",
+//			xspec_ptr[0], xspec_ptr[1], xspec_ptr[2], xspec_ptr[3],
+//			xspec_ptr[4], xspec_ptr[5], xspec_ptr[6], xspec_ptr[7]);
 		cpg_spec(param_ptr, freq_ptr, xspec_ptr);
 
 	}

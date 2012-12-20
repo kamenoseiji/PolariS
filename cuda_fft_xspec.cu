@@ -96,6 +96,18 @@ __global__ void accumCrossSpec(
 	}
 }
 
+//-------- Convert SoD (Second of Day) into hour, min, and second
+int sod2hms(
+	int	sod,		// Second of Day
+	int	*hour,		// Hour
+	int	*min,		// Min
+	int	*sec)		// Sec
+{
+	*hour = sod / 3600;
+	*min  = (sod % 3600) / 60;
+	*sec  = (sod % 60);
+	return(*sec);
+}
 
 main(
 	int		argc,			// Number of Arguments
@@ -103,28 +115,29 @@ main(
 {
 	int		shrd_param_id;				// Shared Memory ID
 	int		if_index;					// Index for IF
+	int     sod=0, hour=0, min=0, sec=0;// Second of day, hour, min, sec
+	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
 	float	*init_segdata_ptr, *segdata_ptr;				// Pointer to sampled data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
+	FILE	*file_ptr;					// File Pointer to write
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
 	cufftHandle		cufft_plan;			// 1-D FFT Plan, to be used in cufft
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
 	cufftComplex	*cuCrossSpec;		// (crosscorrelation) Cross Spectrum
-
 	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
 	cufftReal		*cuPowerSpec;		// (autocorrelation) Power Spectrum
 
+//------------------------------------------ Prepare for Output Data
+	file_ptr = fopen("/DATA/PolariS.dat", "w");
 //------------------------------------------ Prepare for CuFFT
 	cudaMalloc( (void **)&cuRealData, Nif* NsegSec2* SegLen * sizeof(cufftReal) );
 	cudaMalloc( (void **)&cuSpecData, Nif* NsegSec2* NFFTC* sizeof(cufftComplex) );
-
-//	cudaMalloc( (void **)&cuPowerSpecSeg, Nif* NsegSec2* NFFT2* sizeof(float) );
-//	cudaMalloc( (void **)&cuCrossSpecSeg, Nif/2* NsegSec2* NFFTC* sizeof(float2) );
-
 	cudaMalloc( (void **)&cuPowerSpec, Nif* NFFTC* sizeof(float));
 	cudaMalloc( (void **)&cuCrossSpec, Nif/2* NFFTC* sizeof(float2));
+
 	if(cudaGetLastError() != cudaSuccess){
 		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1);
 	}
@@ -137,19 +150,18 @@ main(
 	param_ptr = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
 	init_segdata_ptr = (float *)shmat(param_ptr->shrd_seg_id, NULL, SHM_RDONLY);
 	xspec_ptr   = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
+	k5head_ptr = (unsigned char *)shmat(param_ptr->shrd_k5head_id, NULL, SHM_RDONLY);
 //------------------------------------------ K5 Header and Data
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 
 		//-------- Wait for the first half in the S-part
-		printf("FFT status EW\n");
 		sops.sem_num = (ushort)SEM_SEG_F; sops.sem_op = (short)-4; sops.sem_flg = (short)0;
         semop( param_ptr->sem_data_id, &sops, 1);
 		segdata_ptr = init_segdata_ptr;								// Move to the head of segmant data
 
 		//-------- FFT Time -> Freq for the first half
-		printf("FFT status ES\n");
 		cudaMemcpy(
 			cuRealData,												// Segmant Data in GPU
 			segdata_ptr,											// Segmant Data in Host
@@ -188,13 +200,11 @@ main(
 
 
 		//-------- Wait for the Last half in the S-part
-		printf("FFT status OW\n");
 		segdata_ptr += Nif* NsegSec2* SegLen;
 		sops.sem_num = (ushort)SEM_SEG_L; sops.sem_op = (short)-4; sops.sem_flg = (short)0;
         semop( param_ptr->sem_data_id, &sops, 1);
 
 		//-------- FFT Time -> Freq for the last half
-		printf("FFT status OS\n");
 		cudaMemcpy(
 			cuRealData,											// Segmant Data in GPU
 			segdata_ptr,										// Segmant Data in Host
@@ -233,9 +243,14 @@ main(
 		//-------- Dump cross spectra to shared memory
 		cudaMemcpy( xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
 		cudaMemcpy( &xspec_ptr[Nif* NFFT2], cuCrossSpec, Nif/2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
+		fwrite(xspec_ptr, sizeof(float), 2* Nif* NFFT2, file_ptr);
 
 		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
+		memcpy(&sod, &k5head_ptr[4], 2);
+		sod |= (k5head_ptr[6] & 0x01) << 17; sod2hms(sod, &hour, &min, &sec);
+		printf("UT=%02d:%02d:%02d -- Succeeded\n", hour, min, sec);
+
 	}
 /*
 -------------------------------------------- RELEASE the SHM
@@ -243,10 +258,9 @@ main(
 	cufftDestroy(cufft_plan);
 	cudaFree(cuRealData);
 	cudaFree(cuSpecData);
-//	cudaFree(cuPowerSpecSeg);
-//	cudaFree(cuCrossSpecSeg);
 	cudaFree(cuPowerSpec);
 	cudaFree(cuCrossSpec);
+	fclose(file_ptr);
 
     return(0);
 }
