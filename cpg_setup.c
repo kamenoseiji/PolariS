@@ -24,20 +24,15 @@ int	cpg_setup(struct SHM_PARAM	*param_ptr)
 	cpgscrn(4, "Cyan", &err_code);			/* COLOR DEFINISHON */
 	cpgeras();
 
-	nxwin	= (int)sqrt((double)param_ptr->num_st);
-	nywin	= (param_ptr->num_st + nxwin - 1)/nxwin;
-	xwin_incr = 0.9 / (float)nxwin;
-	ywin_incr = 0.9 / (float)nywin;
-
 	cpgsvp( 0.0, 1.0, 0.0, 1.0 );
 	cpgswin( 0.0, 1.0, 0.0, 1.0 );
 	cpgsci(1);
-	cpgsch(0.5);
 
 	/*-------- OPEN PGPLOT DEVICE --------*/
 	cpgsch(1.0);
-	cpgtext( 0.42, 0.975, "PolariS" );
-	cpgtext( 0.45, 0.025, "Frequency [Hz]" );
+	cpgptxt( 0.5, 0.975, 0.0, 0.5, "PolariS" );
+	cpgptxt( 0.5, 0.025, 0.0, 0.5, "Frequency [Hz]" );
+	cpgptxt( 0.025, 0.5, 90.0, 0.5, "Relative Power [dB]" );
 
 	return(0);
 }

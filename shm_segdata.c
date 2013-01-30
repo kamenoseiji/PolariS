@@ -80,6 +80,7 @@ main(
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}
+		printf(" SEM for IF %d --- first half copied!!\n", index_if);
 		sops.sem_num = (ushort)8; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 
@@ -100,7 +101,7 @@ main(
 				segdata_ptr ++; k5data_ptr ++;
 			}
 		}
-//		printf(" SEM for IF %d --- latter half copied!!\n", index_if);
+		printf(" SEM for IF %d --- latter half copied!!\n", index_if);
 		sops.sem_num = (ushort)9; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 	}

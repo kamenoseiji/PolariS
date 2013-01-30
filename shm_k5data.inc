@@ -23,6 +23,7 @@
 #define	K5FIFO_SIZE		65536		// 64 kbytes
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	33554432	// 256 Mbit = 32 MB
+#define	HALFSEC_OFFSET	 8388608	// 8192k words per 1/2 sec
 #define	SegLen			262144		// Segment size (2^18)
 #define	NFFT			262144		// FFT points
 #define	NFFT2			131072		// Half of FFT points
@@ -33,6 +34,7 @@
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
 #define	SEGDATA_SIZE	Nif* SegLen* NsegSec* sizeof(float)
 #define	XSPEC_SIZE		Nif* Ncross* NFFT2* sizeof(float)
+#define	MAX_FILE_REC	3600		// Maximum number of records in output file
 
 //-------- Memory Map
 #define	SEG_SAMPLE_OFFSET	MAX_SAMPLE_BUF
@@ -64,6 +66,11 @@ struct	SHM_PARAM{
 
 	//-------- Status
 	int		validity;			// Running / Ending signal
+	int		year;				// Year
+	int		doy;				// Day of Year
+	int		hour;				// Hour (UT)
+	int		min;				// Minute
+	int		sec;				// Second
 };
 
 //-------- Dictionary of validity

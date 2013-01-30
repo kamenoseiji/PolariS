@@ -39,6 +39,7 @@ main(
 		}
 	}
 //------------------------------------------ Start S-part
+#ifdef HIDOI
 	usleep(100000);		// Wait 100 msec
 	for(index=0; index<param_ptr->num_st; index++){
 		if( fork() == 0){
@@ -49,7 +50,10 @@ main(
 			}
 		}
 	}
+#endif
 //------------------------------------------ Start Spectrum Viewer
+#ifdef HIDOI
+#endif
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], "shm_spec_view");
 		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
@@ -57,7 +61,6 @@ main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-
 //------------------------------------------ Start CUDA FFT
 	sleep(1);		// Wait 1 sec
 	if( fork() == 0){

@@ -10,8 +10,8 @@ CCOMPL=gcc $(CFLAGS)
 NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
-PROGS=	polaris_start shm_alloc shm_init shm_param_view k5sample_store cuda_fft_xspec shm_segdata shm_spec_view
-GRLIBS= -L/usr/X11R6/lib -lX11
+PROGS=	polaris_start shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view k5sample_store
+GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft
 CUDALIB= -lcutil
@@ -22,6 +22,7 @@ OBJ_shm_init = shm_init.o shm_access.o
 OBJ_shm_view = shm_param_view.o shm_access.o timesystem.o
 OBJ_spec_view = shm_spec_view.o shm_access.o cpg_setup.o cpg_spec.o
 OBJ_k5sample_store = k5sample_store.o shm_access.o
+OBJ_k5sim = k5sim.o shm_access.o
 OBJ_shm_segdata = shm_segdata.o
 OBJ_cuda_fft = cuda_fft_xspec.o shm_access.o
 #----------------- Compile and link ------------------------
@@ -30,6 +31,9 @@ polaris_start : $(OBJ_start)
 
 k5sample_store : $(OBJ_k5sample_store)
 	$(CCOMPL) -o $@ $(OBJ_k5sample_store)
+
+k5sim : $(OBJ_k5sim)
+	$(CCOMPL) -o $@ $(OBJ_k5sim)
 
 shm_alloc : $(OBJ_shm_alloc)
 	$(CCOMPL) -o $@ $(OBJ_shm_alloc)
@@ -47,7 +51,7 @@ shm_spec_view : $(OBJ_spec_view)
 	$(FCOMPL) -o $@ $(OBJ_spec_view) $(CPGPLOT) $(PGPLOT) $(GRLIBS)
 
 cuda_fft_xspec : $(OBJ_cuda_fft)
-	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB) $(CUDALIB)
+	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB)
 
 clean :
 	\rm $(PROGS) *.o a.out core *.trace
@@ -60,13 +64,14 @@ install:
 #----------------- Objects ------------------------
 #.cu.o:
 #	$(NVCC) -c $*.cu
-cuda_fft_xspec.o:	cuda_fft_xspec.cu	shm_k5data.inc
+cuda_fft_xspec.o:	cuda_fft_xspec.cu	shm_k5data.inc cuda_polaris.inc
 	$(NVCC) -c cuda_fft_xspec.cu
 
 .c.o:
 	$(CCOMPL) -c $*.c
 
 k5sample_store.o:	k5sample_store.c	shm_k5data.inc
+k5sim.o:	k5sim.c	shm_k5data.inc
 polaris_start.o:	polaris_start.c		shm_k5data.inc
 shm_alloc.o:		shm_alloc.c			shm_k5data.inc
 shm_init.o:			shm_init.c			shm_k5data.inc

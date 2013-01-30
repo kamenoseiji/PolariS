@@ -13,7 +13,7 @@ int erase_shm(
 
 	shmctl(param_ptr->shrd_k5head_id, IPC_RMID, 0);		// Release K5 header
 	shmctl(param_ptr->shrd_k5data_id, IPC_RMID, 0);		// Release K5 data
-	shmctl(param_ptr->shrd_seg_id, IPC_RMID, 0);		// Release Segment data
+//	shmctl(param_ptr->shrd_seg_id, IPC_RMID, 0);		// Release Segment data
 	shmctl(param_ptr->shrd_xspec_id, IPC_RMID, 0);		// Release xspec data
 
 	sleep(1);

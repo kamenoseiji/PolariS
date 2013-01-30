@@ -61,6 +61,7 @@ main(
 	printf("Allocated %d bytes for Shared K5 data [%d]!\n", MAX_SAMPLE_BUF, param_ptr->shrd_k5data_id);
 
     //-------- SHARED Segment Data --------
+#ifdef HIDOI
 	if(shm_init_create(
 		SEGDATA_KEY,					// ACCESS KEY
 		SEGDATA_SIZE,					// Data Area Size
@@ -69,6 +70,7 @@ main(
 		perror("Can't Create Shared Segment data!!\n"); return(-1);
 	}
 	printf("Allocated %d bytes for Shared Segment data [%d]!\n", SEGDATA_SIZE, param_ptr->shrd_seg_id);
+#endif
 
     //-------- SHARED cross-power-spectra data area --------
 	if(shm_init_create(
