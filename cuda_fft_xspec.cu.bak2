@@ -25,7 +25,7 @@ main(
 	short	*k5data_ptr;				// Pointer to shared K5 data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
 	FILE	*file_ptr[6];				// File Pointer to write
-	char	fname[24];					// File Name [YYYYDOYHHMMSSIF]
+	char	fname[20];					// File Name [YYYYDOYHHMMSSIF]
 	char	fname_pre[16];
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
@@ -127,7 +127,6 @@ main(
 			}
 			//---- Cross Corr
 			accumCrossSpec<<<Dg, Db>>>(cuSpecData, &cuSpecData[2*NFFTC], cuXSpec, NFFT2);
-			accumCrossSpec<<<Dg, Db>>>(&cuSpecData[NFFTC], &cuSpecData[3*NFFTC], &cuXSpec[NFFT2], NFFT2);
 //			printf("%lf [msec]\n", GetTimer());
 			
 		}
@@ -137,9 +136,6 @@ main(
 		for(index=0; index<Nif; index++){
 			fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);
 		}
-		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
-		fwrite(&xspec_ptr[4* NFFT2], sizeof(float2), NFFT2, file_ptr[4]);
-		fwrite(&xspec_ptr[6* NFFT2], sizeof(float2), NFFT2, file_ptr[5]);
 
 		//-------- Refresh output data file
 		if(rec_index == MAX_FILE_REC - 1){

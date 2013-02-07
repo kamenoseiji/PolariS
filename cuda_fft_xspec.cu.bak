@@ -24,9 +24,8 @@ main(
 	struct	sembuf		sops;			// Semaphore for data access
 	short	*k5data_ptr;				// Pointer to shared K5 data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
-	FILE	*file_ptr[6];				// File Pointer to write
-	char	fname[24];					// File Name [YYYYDOYHHMMSSIF]
-	char	fname_pre[16];
+	FILE	*file_ptr[4];				// File Pointer to write
+	char	fname[16];					// File Name [YYYYDOYHHMMSSIF]
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
 	short			*cuk5data_ptr;		// Pointer to K5 data
@@ -34,14 +33,12 @@ main(
 	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
 	cufftReal		*cuPowerSpec;		// (autocorrelation) Power Spectrum
-	float2			*cuXSpec;
 
 //------------------------------------------ Prepare for CuFFT
 	cudaMalloc( (void **)&cuk5data_ptr, MAX_SAMPLE_BUF);
 	cudaMalloc( (void **)&cuRealData, Nif* NsegSec2* SegLen * sizeof(cufftReal) );
 	cudaMalloc( (void **)&cuSpecData, Nif* NsegSec2* NFFTC* sizeof(cufftComplex) );
 	cudaMalloc( (void **)&cuPowerSpec, Nif* NFFT2* sizeof(float));
-	cudaMalloc( (void **)&cuXSpec, 2* NFFT2* sizeof(float2));
 
 	if(cudaGetLastError() != cudaSuccess){
 		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1);
@@ -70,7 +67,6 @@ main(
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 		cudaMemset( cuPowerSpec, 0, Nif* NFFT2* sizeof(float));		// Clear Power Spec
-		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
 		memcpy(&sod, &k5head_ptr[4], 2);
@@ -81,14 +77,13 @@ main(
 
 		//-------- Open output files
 		if(rec_index == 0){
-			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
-			printf("FNAME_PRE = %s\n", fname_pre);
 			for(index=0; index<Nif; index++){
-				sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
+				sprintf(fname, "%04d%03d%02d%02d%02d%02d",
+					param_ptr->year, param_ptr->doy,
+					param_ptr->hour, param_ptr->min,
+					param_ptr->sec, index);
 				file_ptr[index] = fopen(fname, "w");
 			}
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[4] = fopen(fname, "w");
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[5] = fopen(fname, "w");
 		}
 
 		for(part_index=0; part_index<2; part_index ++){
@@ -125,9 +120,6 @@ main(
 					&cuSpecData[index* NFFTC],
 					&cuPowerSpec[index* NFFT2],  NFFT2);
 			}
-			//---- Cross Corr
-			accumCrossSpec<<<Dg, Db>>>(cuSpecData, &cuSpecData[2*NFFTC], cuXSpec, NFFT2);
-			accumCrossSpec<<<Dg, Db>>>(&cuSpecData[NFFTC], &cuSpecData[3*NFFTC], &cuXSpec[NFFT2], NFFT2);
 //			printf("%lf [msec]\n", GetTimer());
 			
 		}
@@ -137,9 +129,6 @@ main(
 		for(index=0; index<Nif; index++){
 			fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);
 		}
-		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
-		fwrite(&xspec_ptr[4* NFFT2], sizeof(float2), NFFT2, file_ptr[4]);
-		fwrite(&xspec_ptr[6* NFFT2], sizeof(float2), NFFT2, file_ptr[5]);
 
 		//-------- Refresh output data file
 		if(rec_index == MAX_FILE_REC - 1){
@@ -156,9 +145,9 @@ main(
 /*
 -------------------------------------------- RELEASE the SHM
 */
-	for(index=0; index<Nif+2; index++){ fclose(file_ptr[index]); }
+	for(index=0; index<Nif; index++){ fclose(file_ptr[index]); }
 	cufftDestroy(cufft_plan);
-	cudaFree(cuk5data_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec), cudaFree(cuXSpec);
+	cudaFree(cuk5data_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec);
 
     return(0);
 }
