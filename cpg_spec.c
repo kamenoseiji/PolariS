@@ -40,7 +40,7 @@ int	cpg_spec(
 		ymin = -10.0;			ymax = 50.0;
 		for(index=0; index<NFFT2; index++){
 //			plot_y[index] = 10.0* log10(xspec_ptr[(4+st_index)* NFFT2 + index]* xspec_ptr[(4+st_index)* NFFT2 + index]);	// cross polarization in dB
-//			plot_y[index] = 10.0* log10(xspec_ptr[st_index* NFFT2 + index]);	// autocorr. in dB
+			plot_y[index] = 10.0* log10(xspec_ptr[st_index* NFFT2 + index]);	// autocorr. in dB
 		}
 		cpgsvp(	0.067+xwin_incr*nx_index, 0.067+xwin_incr*(nx_index+0.9),
 				0.067+ywin_incr*ny_index, 0.067+ywin_incr*(ny_index+0.9));
