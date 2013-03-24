@@ -52,8 +52,6 @@ main(
 	}
 #endif
 //------------------------------------------ Start Spectrum Viewer
-#ifdef HIDOI
-#endif
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], "shm_spec_view");
 		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
