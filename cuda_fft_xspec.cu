@@ -82,13 +82,15 @@ main(
 		//-------- Open output files
 		if(rec_index == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
-			printf("FNAME_PRE = %s\n", fname_pre);
 			for(index=0; index<Nif; index++){
-				sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
+				sprintf(fname, "%s%s%02d", fname_pre, ".A.", index);
 				file_ptr[index] = fopen(fname, "w");
+				fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
 			}
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[4] = fopen(fname, "w");
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[5] = fopen(fname, "w");
+			sprintf(fname, "%s%s%02d", fname_pre, ".C.", 0);  file_ptr[Nif]   = fopen(fname, "w");
+			sprintf(fname, "%s%s%02d", fname_pre, ".C.", 1);  file_ptr[Nif+1] = fopen(fname, "w");
+			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif]);
+			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif+1]);
 		}
 
 		for(part_index=0; part_index<2; part_index ++){
@@ -143,7 +145,7 @@ main(
 
 		//-------- Refresh output data file
 		if(rec_index == MAX_FILE_REC - 1){
-			for(index=0; index<Nif; index++){ fclose(file_ptr[index]); }
+			for(index=0; index<Nif+2; index++){ fclose(file_ptr[index]); }
 			rec_index = 0;
 		} else { rec_index ++; }
 
