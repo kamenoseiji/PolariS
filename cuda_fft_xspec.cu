@@ -73,7 +73,7 @@ main(
 		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
-		memcpy(&sod, &k5head_ptr[4], 2);
+		sod = 0; memcpy(&sod, &k5head_ptr[4], 2);
 		sod |= ((k5head_ptr[6] & 0x01) << 16);
 		sod2hms(sod, &(param_ptr->hour), &(param_ptr->min), &(param_ptr->sec));
 		param_ptr->doy  =  k5head_ptr[8] | ((k5head_ptr[9] & 0x01) << 8);
@@ -83,12 +83,12 @@ main(
 		if(rec_index == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
 			for(index=0; index<Nif; index++){
-				sprintf(fname, "%s%s%02d", fname_pre, ".A.", index);
+				sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
 				file_ptr[index] = fopen(fname, "w");
 				fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
 			}
-			sprintf(fname, "%s%s%02d", fname_pre, ".C.", 0);  file_ptr[Nif]   = fopen(fname, "w");
-			sprintf(fname, "%s%s%02d", fname_pre, ".C.", 1);  file_ptr[Nif+1] = fopen(fname, "w");
+			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[Nif]   = fopen(fname, "w");
+			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[Nif+1] = fopen(fname, "w");
 			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif]);
 			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif+1]);
 		}
