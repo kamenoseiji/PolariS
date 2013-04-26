@@ -17,7 +17,7 @@ main(
 	int		part_index;					// First and Last Part
 	int		seg_index;					// Index for Segment
 	int		mean_offset, fraction, offset[128], overlap[128];
-	int		sod;						// Seconds of Day
+	int		sod = 0;						// Seconds of Day
 	int		rec_index=0;
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
