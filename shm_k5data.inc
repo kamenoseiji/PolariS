@@ -57,12 +57,18 @@ struct	SHM_PARAM{
 	int		fsample;			// Sampling Frequency [Hz]
 	int		segLen;				// 1-segment length
 	int		segNum;				// Number of segments in 1 sec
+	int		num_ch;				// Number of spectral channels
+	int		dummy3;
 
 	//-------- Process ID
 	int		pid_shm_alloc;		// Process ID
 	int		pid_k5sample;		// Process ID
 	int		pid_segment;		// Process ID
 	int		pid_fft;			// Process ID
+	int		dummy4;
+	int		dummy5;
+	int		dummy6;
+	int		dummy7;
 
 	//-------- Status
 	int		validity;			// Running / Ending signal
@@ -71,6 +77,8 @@ struct	SHM_PARAM{
 	int		hour;				// Hour (UT)
 	int		min;				// Minute
 	int		sec;				// Second
+	int		dummy8;
+	int		dummy9;
 };
 
 //-------- Dictionary of validity
