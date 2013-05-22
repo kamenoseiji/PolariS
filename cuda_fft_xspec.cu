@@ -79,7 +79,6 @@ main(
 			memcpy(&sod, &k5head_ptr[4], 2);
 			sod |= ((k5head_ptr[6] & 0x01) << 16);
 		}
-		sod |= ((k5head_ptr[6] & 0x01) << 16);
 		sod2hms(sod, &(param_ptr->hour), &(param_ptr->min), &(param_ptr->sec));
 		param_ptr->doy  =  k5head_ptr[8] | ((k5head_ptr[9] & 0x01) << 8);
 		param_ptr->year = 2000 + ((k5head_ptr[9] >> 1) & 0x3f);

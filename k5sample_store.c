@@ -60,8 +60,8 @@ main(
 	fsample = TDSIO_SAMPLING_16MHZ; rv = ioctl(fd_in, TDSIO_SET_FSAMPLE, &fsample);
 	qbit    = TDSIO_SAMPLING_4BIT;  rv = ioctl(fd_in, TDSIO_SET_RESOLUTIONBIT, &qbit);
 	num_IF  = TDSIO_SAMPLING_4CH;   rv = ioctl(fd_in, TDSIO_SET_CHMODE, &num_IF);
-	// filter  = TDSIO_SAMPLING_8M;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
-	filter  = TDSIO_SAMPLING_THRU;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
+	filter  = TDSIO_SAMPLING_8M;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
+//	filter  = TDSIO_SAMPLING_THRU;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
 	rv = ioctl(fd_in,TDSIO_GET_FSAMPLE, &fsample); printf("Fsample=%d\n", fsample);
 	rv = ioctl(fd_in,TDSIO_GET_RESOLUTIONBIT,  &qbit);  printf("Qbit =%d\n", qbit);
 	rv = ioctl(fd_in,TDSIO_GET_CHMODE,  &num_IF);  printf("Num of IF =%d\n", num_IF);
