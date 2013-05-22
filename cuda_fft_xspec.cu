@@ -73,17 +73,13 @@ main(
 		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
-<<<<<<< HEAD
 		sod = 0;
 		while(sod == 0){	// Wait until UTC to be valid
 			usleep(100000);	// Wait 100 msec
 			memcpy(&sod, &k5head_ptr[4], 2);
 			sod |= ((k5head_ptr[6] & 0x01) << 16);
 		}
-=======
-		sod = 0; memcpy(&sod, &k5head_ptr[4], 2);
 		sod |= ((k5head_ptr[6] & 0x01) << 16);
->>>>>>> d461cc85d81d7650e34e7a394988ef9c5dc2d33a
 		sod2hms(sod, &(param_ptr->hour), &(param_ptr->min), &(param_ptr->sec));
 		param_ptr->doy  =  k5head_ptr[8] | ((k5head_ptr[9] & 0x01) << 8);
 		param_ptr->year = 2000 + ((k5head_ptr[9] >> 1) & 0x3f);
