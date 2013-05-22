@@ -73,8 +73,12 @@ main(
 		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
-		memcpy(&sod, &k5head_ptr[4], 2);
-		sod |= (k5head_ptr[6] & 0x01) << 16;
+		sod = 0;
+		while(sod == 0){	// Wait until UTC to be valid
+			usleep(100000);	// Wait 100 msec
+			memcpy(&sod, &k5head_ptr[4], 2);
+			sod |= ((k5head_ptr[6] & 0x01) << 16);
+		}
 		sod2hms(sod, &(param_ptr->hour), &(param_ptr->min), &(param_ptr->sec));
 		param_ptr->doy  =  k5head_ptr[8] | ((k5head_ptr[9] & 0x01) << 8);
 		param_ptr->year = 2000 + ((k5head_ptr[9] >> 1) & 0x3f);
@@ -82,13 +86,15 @@ main(
 		//-------- Open output files
 		if(rec_index == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
-			printf("FNAME_PRE = %s\n", fname_pre);
 			for(index=0; index<Nif; index++){
 				sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
 				file_ptr[index] = fopen(fname, "w");
+				fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
 			}
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[4] = fopen(fname, "w");
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[5] = fopen(fname, "w");
+			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[Nif]   = fopen(fname, "w");
+			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[Nif+1] = fopen(fname, "w");
+			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif]);
+			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif+1]);
 		}
 
 		for(part_index=0; part_index<2; part_index ++){
@@ -143,14 +149,14 @@ main(
 
 		//-------- Refresh output data file
 		if(rec_index == MAX_FILE_REC - 1){
-			for(index=0; index<Nif; index++){ fclose(file_ptr[index]); }
+			for(index=0; index<Nif+2; index++){ fclose(file_ptr[index]); }
 			rec_index = 0;
 		} else { rec_index ++; }
 
 		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
-		printf("%04d %03d UT=%02d:%02d:%02d -- Succeeded.\n",
-			param_ptr->year, param_ptr->doy, 
+		printf("%04d %03d SOD=%d UT=%02d:%02d:%02d -- Succeeded.\n",
+			param_ptr->year, param_ptr->doy, sod,
 			param_ptr->hour, param_ptr->min, param_ptr->sec);
 	}
 /*
