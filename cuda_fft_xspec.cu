@@ -7,6 +7,8 @@
 #include <cufft.h>
 #include </usr/local/cuda-5.0/samples/common/inc/timer.h>
 #include "cuda_polaris.inc"
+#define	PARTNUM 2
+#define SCALEFACT 1.0/(NFFT* NsegSec2* PARTNUM)
 
 main(
 	int		argc,			// Number of Arguments
@@ -97,7 +99,7 @@ main(
 			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif+1]);
 		}
 
-		for(part_index=0; part_index<2; part_index ++){
+		for(part_index=0; part_index<PARTNUM; part_index ++){
 			//-------- Wait for the first half in the S-part
 			sops.sem_num = (ushort)(4* part_index); sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 			semop( param_ptr->sem_data_id, &sops, 1);
@@ -126,17 +128,22 @@ main(
 
 			//---- Auto Corr
 			Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
-			for(index=0; index<Nif; index++){
-				accumPowerSpec<<<Dg, Db>>>(
-					&cuSpecData[index* NFFTC],
-					&cuPowerSpec[index* NFFT2],  NFFT2);
+			for(seg_index=0; seg_index<NsegSec2; seg_index++){
+				for(index=0; index<Nif; index++){
+					accumPowerSpec<<<Dg, Db>>>(
+						&cuSpecData[(seg_index* Nif + index)* NFFTC],
+						&cuPowerSpec[index* NFFT2],  NFFT2);
+				}
 			}
 			//---- Cross Corr
 			accumCrossSpec<<<Dg, Db>>>(cuSpecData, &cuSpecData[2*NFFTC], cuXSpec, NFFT2);
 			accumCrossSpec<<<Dg, Db>>>(&cuSpecData[NFFTC], &cuSpecData[3*NFFTC], &cuXSpec[NFFT2], NFFT2);
 //			printf("%lf [msec]\n", GetTimer());
 			
-		}
+		}	// End of part loop
+		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
+		scalePowerSpec<<<Dg, Db>>>(cuPowerSpec, SCALEFACT, Nif* NFFT2);
+		scaleCrossSpec<<<Dg, Db>>>(cuXSpec, SCALEFACT, 2* NFFT2);
 
 		//-------- Dump cross spectra to shared memory
 		cudaMemcpy(xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
@@ -158,7 +165,7 @@ main(
 		printf("%04d %03d SOD=%d UT=%02d:%02d:%02d -- Succeeded.\n",
 			param_ptr->year, param_ptr->doy, sod,
 			param_ptr->hour, param_ptr->min, param_ptr->sec);
-	}
+	}	// End of 1-sec loop
 /*
 -------------------------------------------- RELEASE the SHM
 */

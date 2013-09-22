@@ -34,7 +34,7 @@
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
 #define	SEGDATA_SIZE	Nif* SegLen* NsegSec* sizeof(float)
 #define	XSPEC_SIZE		Nif* Ncross* NFFT2* sizeof(float)
-#define	MAX_FILE_REC	3600		// Maximum number of records in output file
+#define	MAX_FILE_REC	1800		// Maximum number of records in output file
 
 //-------- Memory Map
 #define	SEG_SAMPLE_OFFSET	MAX_SAMPLE_BUF
@@ -108,6 +108,7 @@ struct	SHM_PARAM{
 //-------- Chiled Processes
 #define SHM_ALLOC	"/usr/local/custom/bin/shm_alloc"
 #define K5_SAMPLE	"/usr/local/custom/bin/k5sample_store"
+#define K5_SIM		"/usr/local/custom/bin/k5sim"
 #define SHM_SEGDATA	"/usr/local/custom/bin/shm_segdata"
 #define CUDA_FFT	"/usr/local/custom/bin/cuda_fft_xspec"
 #define SPEC_VIEW	"/usr/local/custom/bin/shm_spec_view"

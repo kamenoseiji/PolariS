@@ -10,7 +10,7 @@ CCOMPL=gcc $(CFLAGS)
 NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
-PROGS=	polaris_start shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view k5sample_store
+PROGS=	polaris_start shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view k5sample_store k5sim
 GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft

@@ -31,6 +31,7 @@ main(
 	}
 	param_ptr->pid_shm_alloc = pid;
 //------------------------------------------ Start K5 sampling
+#ifdef DEBUG
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], "k5sample_store");
 		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
@@ -38,19 +39,15 @@ main(
 			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-//------------------------------------------ Start S-part
-#ifdef HIDOI
-	usleep(100000);		// Wait 100 msec
-	for(index=0; index<param_ptr->num_st; index++){
-		if( fork() == 0){
-			pid = getpid(); sprintf(cmd[0], "shm_segdata"); sprintf(cmd[1], "%d", index);
-			printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
-			if( execl( SHM_SEGDATA, cmd[0], cmd[1], (char *)NULL ) == -1){
-				perror("Can't Create Chiled Proces!!\n"); return(-1);
-			}
+#endif
+//------------------------------------------ Start K5 simulator
+	if( fork() == 0){
+		pid = getpid(); sprintf(cmd[0], "k5sim");
+		printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
+		if( execl( K5_SIM, cmd[0], (char *)NULL ) == -1){
+			perror("Can't Create Chiled Proces!!\n"); return(-1);
 		}
 	}
-#endif
 //------------------------------------------ Start Spectrum Viewer
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], "shm_spec_view");
