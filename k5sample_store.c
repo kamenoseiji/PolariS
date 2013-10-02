@@ -25,6 +25,7 @@ main(
 	unsigned char	*k5head_ptr;		// Pointer to the shared K5 header
 	unsigned char	*k5data_ptr;		// Pointer to the shared K5 data
 	unsigned char	*shm_write_ptr;		// Writing Pointer
+	FILE	*dumpfile_ptr;				// Dump File
 
 	int		year;
 	int		index;
@@ -52,6 +53,7 @@ main(
 	k5head_ptr = shmat( param_ptr->shrd_k5head_id, NULL, 0 );
 	k5data_ptr = shmat( param_ptr->shrd_k5data_id, NULL, 0 );
 	param_ptr->validity |= ENABLE;		// Set Shared memory readiness bit to 1
+//	dumpfile_ptr = fopen("K5.dump", "w");
 //------------------------------------------ Start Sampling
 	rv = ioctl(fd_in, TDSIO_INIT);	printf("TDSIO_INIT result in %d\n", rv);
 	rv = ioctl(fd_in, TDSIO_BUFFER_CLEAR);  printf("TDSIO_BUFFER_CLEAR result in %d\n", rv);
@@ -107,8 +109,10 @@ main(
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 			semop(param_ptr->sem_data_id, &sops, 1);
 		}
+//		fwrite(k5data_ptr, 32000000, 1, dumpfile_ptr);
 	}
 //------------------------------------------ Stop Sampling
+//	fclose(dumpfile_ptr);
 	rv = ioctl(fd_in, TDSIO_SAMPLING_STOP);	close(fd_in);
 	param_ptr->validity &= (~ACTIVE);		// Set Sampling Activity Bit to 0
 

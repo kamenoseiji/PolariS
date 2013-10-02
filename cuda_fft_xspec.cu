@@ -35,7 +35,7 @@ main(
 	cufftHandle		cufft_plan;			// 1-D FFT Plan, to be used in cufft
 	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
-	cufftReal		*cuPowerSpec;		// (autocorrelation) Power Spectrum
+	float			*cuPowerSpec;		// (autocorrelation) Power Spectrum
 	float2			*cuXSpec;
 
 //------------------------------------------ Prepare for CuFFT
@@ -136,8 +136,16 @@ main(
 				}
 			}
 			//---- Cross Corr
-			accumCrossSpec<<<Dg, Db>>>(cuSpecData, &cuSpecData[2*NFFTC], cuXSpec, NFFT2);
-			accumCrossSpec<<<Dg, Db>>>(&cuSpecData[NFFTC], &cuSpecData[3*NFFTC], &cuXSpec[NFFT2], NFFT2);
+			for(seg_index=0; seg_index<NsegSec2; seg_index++){
+				accumCrossSpec<<<Dg, Db>>>(
+					&cuSpecData[(seg_index* Nif)* NFFTC],
+					&cuSpecData[(seg_index* Nif + 2)* NFFTC],
+					cuXSpec, NFFT2);
+				accumCrossSpec<<<Dg, Db>>>(
+					&cuSpecData[(seg_index* Nif + 1)*NFFTC],
+					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
+					&cuXSpec[NFFT2], NFFT2);
+			}
 //			printf("%lf [msec]\n", GetTimer());
 			
 		}	// End of part loop

@@ -128,15 +128,14 @@ __global__ void segform(
 	int		length)			// Length to copy
 {
 	int ix = blockIdx.x* blockDim.x + threadIdx.x;
-	short bitshift[]={0, 4, 8, 12};
-	short bitmask = 0x000f;
+	short bitmask = 0x000f;				// 4-bit mask
 	float wt4[] = {-7.5, -6.5, -5.5, -4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5};
 	
 	if( (ix >= 0) && (ix < length) ){
-		segdata[           ix] = wt4[(k5data_in[ix] >> bitshift[0]) & bitmask];
-		segdata[  length + ix] = wt4[(k5data_in[ix] >> bitshift[1]) & bitmask];
-		segdata[2*length + ix] = wt4[(k5data_in[ix] >> bitshift[2]) & bitmask];
-		segdata[3*length + ix] = wt4[(k5data_in[ix] >> bitshift[3]) & bitmask];
+		segdata[           ix] = wt4[(k5data_in[ix]       ) & bitmask];
+		segdata[  length + ix] = wt4[(k5data_in[ix] >>  4 ) & bitmask];
+		segdata[2*length + ix] = wt4[(k5data_in[ix] >>  8 ) & bitmask];
+		segdata[3*length + ix] = wt4[(k5data_in[ix] >> 12 ) & bitmask];
 	}
 }
 
