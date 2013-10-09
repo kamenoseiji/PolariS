@@ -25,7 +25,7 @@ main(
 	unsigned char	*k5head_ptr;		// Pointer to the shared K5 header
 	unsigned char	*k5data_ptr;		// Pointer to the shared K5 data
 	unsigned char	*shm_write_ptr;		// Writing Pointer
-	FILE	*dumpfile_ptr;				// Dump File
+//	FILE	*dumpfile_ptr;				// Dump File
 
 	int		year;
 	int		index;

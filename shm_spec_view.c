@@ -34,6 +34,7 @@ main(
 
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
 	cpgbeg(1, "/xserv", 1, 1);
+//	cpgbeg(1, "/gif", 1, 1);
 	cpg_setup(param_ptr);
 	freq_ptr = (float *)malloc(NFFT2* sizeof(float));
 	freq_incr = (double)(param_ptr->fsample) / 2 / NFFT2;

@@ -93,8 +93,8 @@ __global__ void accumCrossSpec(
 	if( (ix >= 0) && (ix < length) ){
 //		vec_out[ix].x += complexMultConj(vec_in_a[ix], vec_in_b[ix]).x;
 //		vec_out[ix].y += complexMultConj(vec_in_a[ix], vec_in_b[ix]).y;
-		vec_out[ix].x += vec_in_a[ix].x * vec_in_b[ix].x - vec_in_a[ix].y * vec_in_b[ix].y;
-		vec_out[ix].y += vec_in_a[ix].x * vec_in_b[ix].y + vec_in_a[ix].y * vec_in_b[ix].x;
+		vec_out[ix].x += vec_in_a[ix].x * vec_in_b[ix].x + vec_in_a[ix].y * vec_in_b[ix].y;
+		vec_out[ix].y += vec_in_a[ix].y * vec_in_b[ix].x - vec_in_a[ix].x * vec_in_b[ix].y;
 	}
 }
 
