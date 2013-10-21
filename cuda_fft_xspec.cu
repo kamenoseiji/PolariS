@@ -21,6 +21,8 @@ main(
 	int		mean_offset, fraction, offset[128], overlap[128];
 	int		sod = 0;						// Seconds of Day
 	int		rec_index=0;
+	int		sample_addr;
+	int		bitmask = 0x000f;
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
@@ -29,6 +31,7 @@ main(
 	FILE	*file_ptr[6];				// File Pointer to write
 	char	fname[24];					// File Name [YYYYDOYHHMMSSIF]
 	char	fname_pre[16];
+	unsigned int		bitDist[64];
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
 	short			*cuk5data_ptr;		// Pointer to K5 data
@@ -99,21 +102,22 @@ main(
 			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif+1]);
 		}
 
+		memset(bitDist, 0, sizeof(bitDist));
 		for(part_index=0; part_index<PARTNUM; part_index ++){
 			//-------- Wait for the first half in the S-part
 			sops.sem_num = (ushort)(4* part_index); sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Segment data format
-//			StartTimer();
+			StartTimer();
 			cudaMemcpy(
 				&cuk5data_ptr[part_index* HALFSEC_OFFSET],
 				&k5data_ptr[part_index* HALFSEC_OFFSET],
 				MAX_SAMPLE_BUF/2,
 				cudaMemcpyHostToDevice);
-			cudaThreadSynchronize();
 
 			//-------- FFT Real -> Complex spectrum
+			cudaThreadSynchronize();
 			Dg.x=SegLen/512; Dg.y=1; Dg.z=1;
 			for(index=0; index < NsegSec2; index ++){
 				seg_index = part_index* NsegSec2 + index;
@@ -122,6 +126,16 @@ main(
 					&cuRealData[index* Nif* SegLen],
 					SegLen);
 			}
+
+			//-------- Bit Distribution
+			for(index=0; index<8000000; index++){
+				sample_addr = part_index* HALFSEC_OFFSET + index;
+				bitDist[     ((k5data_ptr[sample_addr]      ) & bitmask)] ++;	// IF-0 bitdist
+				bitDist[16 + ((k5data_ptr[sample_addr] >>  4) & bitmask)] ++;	// IF-1 bitdist
+				bitDist[32 + ((k5data_ptr[sample_addr] >>  8) & bitmask)] ++;	// IF-2 bitdist
+				bitDist[48 + ((k5data_ptr[sample_addr] >> 12) & bitmask)] ++;	// IF-3 bitdist
+			}
+
 			cudaThreadSynchronize();
 			cufftExecR2C(cufft_plan, cuRealData, cuSpecData);			// FFT Time -> Freq
 			cudaThreadSynchronize();
@@ -146,7 +160,7 @@ main(
 					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
 					&cuXSpec[NFFT2], NFFT2);
 			}
-//			printf("%lf [msec]\n", GetTimer());
+			printf("%lf [msec]\n", GetTimer());
 			
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
@@ -156,11 +170,12 @@ main(
 		//-------- Dump cross spectra to shared memory
 		cudaMemcpy(xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
 		for(index=0; index<Nif; index++){
-			fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);
+			fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);	// Save Pspec
+			fwrite(&bitDist[index* 16], sizeof(int), 16, file_ptr[index]);				// Save Bitdist
 		}
 		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
-		fwrite(&xspec_ptr[4* NFFT2], sizeof(float2), NFFT2, file_ptr[4]);
-		fwrite(&xspec_ptr[6* NFFT2], sizeof(float2), NFFT2, file_ptr[5]);
+		fwrite(&xspec_ptr[4* NFFT2], sizeof(float2), NFFT2, file_ptr[4]);	// Save Xspec (IF0 - IF2)
+		fwrite(&xspec_ptr[6* NFFT2], sizeof(float2), NFFT2, file_ptr[5]);	// Save Xspec (IF1 - IF3)
 
 		//-------- Refresh output data file
 		if(rec_index == MAX_FILE_REC - 1){

@@ -77,7 +77,6 @@ __global__ void accumPowerSpec(
     int ix = blockIdx.x* blockDim.x + threadIdx.x;
 
 	if( (ix >= 0) && (ix < length) ){
-//		vec_out[ix] += complexMod(vec_in[ix]);
 		vec_out[ix] += vec_in[ix].x *  vec_in[ix].x +  vec_in[ix].y *  vec_in[ix].y;
 	}
 }
@@ -91,8 +90,6 @@ __global__ void accumCrossSpec(
     int ix = blockIdx.x* blockDim.x + threadIdx.x;
 
 	if( (ix >= 0) && (ix < length) ){
-//		vec_out[ix].x += complexMultConj(vec_in_a[ix], vec_in_b[ix]).x;
-//		vec_out[ix].y += complexMultConj(vec_in_a[ix], vec_in_b[ix]).y;
 		vec_out[ix].x += vec_in_a[ix].x * vec_in_b[ix].x + vec_in_a[ix].y * vec_in_b[ix].y;
 		vec_out[ix].y += vec_in_a[ix].y * vec_in_b[ix].x - vec_in_a[ix].x * vec_in_b[ix].y;
 	}
