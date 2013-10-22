@@ -29,6 +29,7 @@ main(
 	short	*k5data_ptr;				// Pointer to shared K5 data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
 	FILE	*file_ptr[6];				// File Pointer to write
+	FILE	*power_ptr[4];				// Power File Pointer to write
 	char	fname[24];					// File Name [YYYYDOYHHMMSSIF]
 	char	fname_pre[16];
 	unsigned int		bitDist[64];
@@ -95,6 +96,9 @@ main(
 				sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
 				file_ptr[index] = fopen(fname, "w");
 				fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
+				sprintf(fname, "%s.%s.%02d", fname_pre, "P", index);
+				power_ptr[index] = fopen(fname, "w");
+				fwrite( param_ptr, sizeof(SHM_PARAM), 1, power_ptr[index]);
 			}
 			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[Nif]   = fopen(fname, "w");
 			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[Nif+1] = fopen(fname, "w");
@@ -171,7 +175,7 @@ main(
 		cudaMemcpy(xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
 		for(index=0; index<Nif; index++){
 			fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);	// Save Pspec
-			fwrite(&bitDist[index* 16], sizeof(int), 16, file_ptr[index]);				// Save Bitdist
+			fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);				// Save Bitdist
 		}
 		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
 		fwrite(&xspec_ptr[4* NFFT2], sizeof(float2), NFFT2, file_ptr[4]);	// Save Xspec (IF0 - IF2)
@@ -193,6 +197,7 @@ main(
 -------------------------------------------- RELEASE the SHM
 */
 	for(index=0; index<Nif+2; index++){ fclose(file_ptr[index]); }
+	for(index=0; index<Nif; index++){ fclose(power_ptr[index]); }
 	cufftDestroy(cufft_plan);
 	cudaFree(cuk5data_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec), cudaFree(cuXSpec);
 
