@@ -20,7 +20,6 @@ main(
 	int		seg_index;					// Index for Segment
 	int		mean_offset, fraction, offset[128], overlap[128];
 	int		sod = 0;						// Seconds of Day
-	int		rec_index=0;
 	int		sample_addr;
 	int		bitmask = 0x000f;
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
@@ -72,6 +71,7 @@ main(
 		offset[seg_index] = offset[seg_index-1] + param_ptr->segLen - overlap[seg_index];
     }
 //------------------------------------------ K5 Header and Data
+	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
 	while(param_ptr->validity & ACTIVE){
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
@@ -90,20 +90,31 @@ main(
 		param_ptr->year = 2000 + ((k5head_ptr[9] >> 1) & 0x3f);
 
 		//-------- Open output files
-		if(rec_index == 0){
+		if(param_ptr->current_rec == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
+
 			for(index=0; index<Nif; index++){
-				sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
-				file_ptr[index] = fopen(fname, "w");
-				fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
-				sprintf(fname, "%s.%s.%02d", fname_pre, "P", index);
-				power_ptr[index] = fopen(fname, "w");
-				fwrite( param_ptr, sizeof(SHM_PARAM), 1, power_ptr[index]);
+				//-------- Autocorrelation File Record Switch
+				if(param_ptr->validity & (A00_REC << index)){
+					sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
+					file_ptr[index] = fopen(fname, "w");
+					fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
+				} else { file_ptr[index] = NULL;}
+
+				//-------- Bit-distribution File Record Switch
+				if(param_ptr->validity & (P00_REC << index)){
+					sprintf(fname, "%s.%s.%02d", fname_pre, "P", index);
+					power_ptr[index] = fopen(fname, "w");
+					fwrite( param_ptr, sizeof(SHM_PARAM), 1, power_ptr[index]);
+				} else { power_ptr[index] = NULL;}
 			}
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 0);  file_ptr[Nif]   = fopen(fname, "w");
-			sprintf(fname, "%s.%s.%02d", fname_pre, "C", 1);  file_ptr[Nif+1] = fopen(fname, "w");
-			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif]);
-			fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif+1]);
+			for(index=0; index<Nif/2; index++){
+				//-------- Crosscorrelation File Record Switch
+				if(param_ptr->validity & (C00_REC << index)){
+					sprintf(fname, "%s.%s.%02d", fname_pre, "C", index);  file_ptr[Nif + index]   = fopen(fname, "w");
+					fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif + index]);
+				} else { file_ptr[Nif + index] = NULL;}
+			}
 		}
 
 		memset(bitDist, 0, sizeof(bitDist));
@@ -113,7 +124,7 @@ main(
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Segment data format
-			StartTimer();
+//			StartTimer();
 			cudaMemcpy(
 				&cuk5data_ptr[part_index* HALFSEC_OFFSET],
 				&k5data_ptr[part_index* HALFSEC_OFFSET],
@@ -164,7 +175,7 @@ main(
 					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
 					&cuXSpec[NFFT2], NFFT2);
 			}
-			printf("%lf [msec]\n", GetTimer());
+//			printf("%lf [msec]\n", GetTimer());
 			
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
@@ -174,30 +185,33 @@ main(
 		//-------- Dump cross spectra to shared memory
 		cudaMemcpy(xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
 		for(index=0; index<Nif; index++){
-			fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);	// Save Pspec
-			fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);				// Save Bitdist
+			if(file_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);}	// Save Pspec
+			if(power_ptr[index] != NULL){fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);}			// Save Bitdist
 		}
 		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
-		fwrite(&xspec_ptr[4* NFFT2], sizeof(float2), NFFT2, file_ptr[4]);	// Save Xspec (IF0 - IF2)
-		fwrite(&xspec_ptr[6* NFFT2], sizeof(float2), NFFT2, file_ptr[5]);	// Save Xspec (IF1 - IF3)
+		for(index=0; index<Nif/2; index++){
+			if(file_ptr[Nif + index] != NULL){
+				fwrite(&xspec_ptr[(Nif + index * 2)* NFFT2], sizeof(float2), NFFT2, file_ptr[Nif + index]);	// Save Xspec
+			}
+		}
 
 		//-------- Refresh output data file
-		if(rec_index == MAX_FILE_REC - 1){
-			for(index=0; index<Nif+2; index++){ fclose(file_ptr[index]); }
-			rec_index = 0;
-		} else { rec_index ++; }
+		if(param_ptr->current_rec == MAX_FILE_REC - 1){
+			for(index=0; index<Nif+2; index++){ if( file_ptr[index] != NULL){	fclose(file_ptr[index]);} }
+			for(index=0; index<Nif; index++){ if( power_ptr[index] != NULL){	fclose(power_ptr[index]);} }
+			param_ptr->current_rec = 0;
+		} else { param_ptr->current_rec ++; }
 
 		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
-		printf("%04d %03d SOD=%d UT=%02d:%02d:%02d -- Succeeded.\n",
-			param_ptr->year, param_ptr->doy, sod,
-			param_ptr->hour, param_ptr->min, param_ptr->sec);
+		printf("%04d %03d SOD=%d UT=%02d:%02d:%02d Rec %d / %d -- Succeeded.\n",
+			param_ptr->year, param_ptr->doy, sod, param_ptr->hour, param_ptr->min, param_ptr->sec, param_ptr->current_rec, param_ptr->integ_rec);
 	}	// End of 1-sec loop
 /*
 -------------------------------------------- RELEASE the SHM
 */
-	for(index=0; index<Nif+2; index++){ fclose(file_ptr[index]); }
-	for(index=0; index<Nif; index++){ fclose(power_ptr[index]); }
+	for(index=0; index<Nif+2; index++){ if( file_ptr[index] != NULL){	fclose(file_ptr[index]);} }
+	for(index=0; index<Nif; index++){ if( power_ptr[index] != NULL){	fclose(power_ptr[index]);} }
 	cufftDestroy(cufft_plan);
 	cudaFree(cuk5data_ptr); cudaFree(cuRealData); cudaFree(cuSpecData); cudaFree(cuPowerSpec), cudaFree(cuXSpec);
 

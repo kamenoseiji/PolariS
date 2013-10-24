@@ -84,6 +84,10 @@ main(
 //------------------------------------------ WAIT UNTIL FINISH
     while((param_ptr->validity & ABSFIN) == 0 ){
 
+		if( (param_ptr->integ_rec > 0) && (param_ptr->current_rec >= param_ptr->integ_rec - 1)){
+			param_ptr->validity |= FINISH;
+		}
+
         //---- SOFT FINISH (Release SHM after 5 seconds) ----
         if( (param_ptr->validity & FINISH) != 0){	// detect FINISH
             sleep(5);
