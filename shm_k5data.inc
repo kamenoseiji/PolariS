@@ -22,8 +22,8 @@
 #define SEM_NUM			16			// Number of Semaphores
 #define	K5FIFO_SIZE		65536		// 64 kbytes
 #define	K5HEAD_SIZE		32			// K5 Header size
-#define	MAX_SAMPLE_BUF	33554432	// 256 Mbit = 32 MB
-#define	HALFSEC_OFFSET	 8388608	// 8192k words per 1/2 sec
+#define	MAX_SAMPLE_BUF	32000000	// 256 Mbit = 32 MB
+#define	HALFSEC_OFFSET	 8000000	// 8M words per 1/2 sec
 #define	SegLen			262144		// Segment size (2^18)
 #define	NFFT			262144		// FFT points
 #define	NFFT2			131072		// Half of FFT points
@@ -37,7 +37,6 @@
 #define	MAX_FILE_REC	1800		// Maximum number of records in output file
 
 //-------- Memory Map
-#define	SEG_SAMPLE_OFFSET	MAX_SAMPLE_BUF
 
 //-------- Shared Parameter
 struct	SHM_PARAM{

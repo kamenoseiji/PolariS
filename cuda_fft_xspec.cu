@@ -18,7 +18,7 @@ main(
 	int		index;						// General Index
 	int		part_index;					// First and Last Part
 	int		seg_index;					// Index for Segment
-	int		mean_offset, fraction, offset[128], overlap[128];
+	int		offset[128];
 	int		sod = 0;						// Seconds of Day
 	int		sample_addr;
 	int		bitmask = 0x000f;
@@ -62,14 +62,9 @@ main(
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
 	k5head_ptr = (unsigned char *)shmat(param_ptr->shrd_k5head_id, NULL, SHM_RDONLY);
 //------------------------------------------ Parameters for S-part format
-	mean_offset = (param_ptr->fsample - param_ptr->segLen) / (param_ptr->segNum - 1);
-	fraction = (param_ptr->fsample - param_ptr->segLen) % mean_offset;
-	offset[0] = 0;  overlap[0] = 0;
-	for(seg_index = 1; seg_index < param_ptr->segNum; seg_index ++){
-		overlap[seg_index] = param_ptr->segLen - mean_offset;
-		if( seg_index % (param_ptr->segNum / fraction) == 1 ){  overlap[seg_index] --;}
-		offset[seg_index] = offset[seg_index-1] + param_ptr->segLen - overlap[seg_index];
-    }
+	for(seg_index = 0; seg_index < param_ptr->segNum; seg_index ++){
+		offset[seg_index] = seg_index* (param_ptr->fsample - param_ptr->segLen) / (param_ptr->segNum - 1);
+	}
 //------------------------------------------ K5 Header and Data
 	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
@@ -143,7 +138,7 @@ main(
 			}
 
 			//-------- Bit Distribution
-			for(index=0; index<8000000; index++){
+			for(index=0; index<HALFSEC_OFFSET; index++){
 				sample_addr = part_index* HALFSEC_OFFSET + index;
 				bitDist[     ((k5data_ptr[sample_addr]      ) & bitmask)] ++;	// IF-0 bitdist
 				bitDist[16 + ((k5data_ptr[sample_addr] >>  4) & bitmask)] ++;	// IF-1 bitdist

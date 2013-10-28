@@ -64,14 +64,14 @@ main(
 	num_IF  = TDSIO_SAMPLING_4CH;   rv = ioctl(fd_in, TDSIO_SET_CHMODE, &num_IF);
 	filter  = TDSIO_SAMPLING_8M;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
 //	filter  = TDSIO_SAMPLING_THRU;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
-	rv = ioctl(fd_in,TDSIO_GET_FSAMPLE, &fsample); printf("Fsample=%d\n", fsample);
-	rv = ioctl(fd_in,TDSIO_GET_RESOLUTIONBIT,  &qbit);  printf("Qbit =%d\n", qbit);
-	rv = ioctl(fd_in,TDSIO_GET_CHMODE,  &num_IF);  printf("Num of IF =%d\n", num_IF);
-	rv = ioctl(fd_in,TDSIO_GET_FILTER,  &filter);  printf("Filter =%d\n", filter);
+	rv = ioctl(fd_in,TDSIO_GET_FSAMPLE, &fsample); // printf("Fsample=%d\n", fsample);
+	rv = ioctl(fd_in,TDSIO_GET_RESOLUTIONBIT,  &qbit);  // printf("Qbit =%d\n", qbit);
+	rv = ioctl(fd_in,TDSIO_GET_CHMODE,  &num_IF);  // printf("Num of IF =%d\n", num_IF);
+	rv = ioctl(fd_in,TDSIO_GET_FILTER,  &filter);  // printf("Filter =%d\n", filter);
 
-	rv = ioctl(fd_in, TDSIO_SAMPLING_START);  printf("TDSIO_SAMPLING_START result in %d\n", rv);
+	rv = ioctl(fd_in, TDSIO_SAMPLING_START);  // printf("TDSIO_SAMPLING_START result in %d\n", rv);
 
-	param_ptr->sd_len = 32e6;							// Size of 1-sec sampling data [bytes]
+	param_ptr->sd_len = MAX_SAMPLE_BUF;					// Size of 1-sec sampling data [bytes]
 	param_ptr->fsample= K5HEAD_FS[fsample]*1000;		// Sampling frequency [Hz]
 	param_ptr->num_st = K5HEAD_CH[num_IF];				// Number of IFs
 	param_ptr->qbit	  = K5HEAD_QB[qbit];				// Quantization Bits
@@ -90,9 +90,10 @@ main(
 		//-------- Read Data
 		shm_write_ptr = k5data_ptr;		// Initialize pointer 
 		//---- First half
-		for(index=0; index<num_read_cycle/2; index++){
+		for(index=0; index<num_read_cycle/2 + 2; index++){
 			rv = read(fd_in, shm_write_ptr, K5FIFO_SIZE); shm_write_ptr += rv;
 		}
+
 	    //-------- Semaphore for Fiest Half--------
 		for(index=0; index<4; index++){
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
@@ -100,7 +101,7 @@ main(
 		}
 
 		//---- Last half
-		for(index=num_read_cycle/2; index<num_read_cycle; index++){
+		for(index=num_read_cycle/2 + 2; index<num_read_cycle; index++){
 			rv = read(fd_in, shm_write_ptr, K5FIFO_SIZE); shm_write_ptr += rv;
 		}
 		rv = read(fd_in, shm_write_ptr, read_fraction); shm_write_ptr += rv;
@@ -109,7 +110,7 @@ main(
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 			semop(param_ptr->sem_data_id, &sops, 1);
 		}
-//		fwrite(k5data_ptr, 32000000, 1, dumpfile_ptr);
+//		fwrite(k5data_ptr, MAX_SAMPLE_BUF, 1, dumpfile_ptr);
 	}
 //------------------------------------------ Stop Sampling
 //	fclose(dumpfile_ptr);
