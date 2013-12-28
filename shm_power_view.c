@@ -1,13 +1,14 @@
-//	shm_spec_view.c : Cross Power Spectrom Viewer
+//	shm_power_view.c : Total Power Monitor
 //
 //	Author : Seiji Kameno
-//	Created: 2012/12/18
+//	Created: 2013/12/23
 //
 #include "shm_k5data.inc"
 #include "k5dict.inc"
 #include <stdlib.h>
 #include <cpgplot.h>
 #include <math.h>
+#define timeNum 128
 
 main(
 	int		argc,			// Number of Arguments
@@ -16,10 +17,10 @@ main(
 	int		shrd_param_id;				// Shared Memory ID
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data area
+	int		IFindex;
 	int		index;
-	float	*xspec_ptr;					// Pointer to Cross Spectra
-	float	*freq_ptr;					// Pointer to Frequency
-	float	freq_incr;					// Freqnecy increment
+	float	bitPower[Nif][timeNum];		// Power Monitor Data
+	float	tempPower[timeNum];			// Buffer
 	char	pg_text[256];				// Text to plot
 	char	xlabel[64];					// X-axis label
 //------------------------------------------ Access to the SHARED MEMORY
@@ -31,30 +32,29 @@ main(
         &param_ptr) != -1){				// Pointer to the SHM
 		printf("Succeeded to access the shared parameter [%d]!\n",  param_ptr->shrd_param_id);
 	}
-	xspec_ptr = shmat(param_ptr->shrd_xspec_id, NULL, SHM_RDONLY);
+	memset(bitPower, 0, Nif* timeNum* sizeof(float));
 //------------------------------------------ K5 Header and Data
-
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
 	cpgbeg(1, argv[1], 1, 1);
-	sprintf(xlabel, "Frequency [MHz]\0"); cpg_setup(xlabel);
-	freq_ptr = (float *)malloc(NFFT2* sizeof(float));
-	freq_incr = (double)(param_ptr->fsample) / 2 / NFFT2;
-	for(index=0; index<NFFT2; index ++){
-		freq_ptr[index] = (float)((index - 0.5)* freq_incr);
-	}
 
 	while(param_ptr->validity & ACTIVE){
+		cpgbbuf();
+		sprintf(xlabel, "Elapsed Time [sec]\0"); cpg_setup(xlabel);
 		if( param_ptr->validity & (FINISH + ABSFIN) ){  break; }
 
 		//-------- Wait for Semaphore
-		sops.sem_num = (ushort)SEM_FX;	sops.sem_op = (short)-1;	sops.sem_flg = (short)0;
+		sops.sem_num = (ushort)SEM_POWER;	sops.sem_op = (short)-1;	sops.sem_flg = (short)0;
 		semop( param_ptr->sem_data_id, &sops, 1);
 
-		//-------- Plot spectra using PGPLOT
-		cpg_spec(param_ptr, freq_ptr, xspec_ptr);
+		//-------- Plot Power Monitor
+		for(IFindex=0; IFindex<Nif; IFindex++){
+			memcpy(tempPower, bitPower[IFindex], timeNum*sizeof(float));
+			bitPower[IFindex][0] = 10.0* log10(param_ptr->power[IFindex]);
+			memcpy(&bitPower[IFindex][1], tempPower, (timeNum-1)*sizeof(float));
+		}
+		cpg_power(param_ptr, bitPower);
 	}
 	cpgend();
 //------------------------------------------ RELEASE the SHM
-	free(freq_ptr);
     return(0);
 }

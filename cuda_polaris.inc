@@ -135,16 +135,3 @@ __global__ void segform(
 		segdata[3*length + ix] = wt4[(k5data_in[ix] >> 12 ) & bitmask];
 	}
 }
-
-//-------- Convert SoD (Second of Day) into hour, min, and second
-int sod2hms(
-	int	sod,		// Second of Day
-	int	*hour,		// Hour
-	int	*min,		// Min
-	int	*sec)		// Sec
-{
-	*hour = sod / 3600;
-	*min  = (sod % 3600) / 60;
-	*sec  = (sod % 60);
-	return(*sec);
-}

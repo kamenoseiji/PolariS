@@ -64,10 +64,9 @@ struct	SHM_PARAM{
 	int		pid_k5sample;		// Process ID
 	int		pid_segment;		// Process ID
 	int		pid_fft;			// Process ID
-	int		dummy4;
-	int		dummy5;
-	int		dummy6;
-	int		dummy7;
+
+	//-------- Total Power
+	float	power[4];				// Power
 
 	//-------- Status
 	int		validity;			// Running / Ending signal
@@ -114,6 +113,7 @@ struct	SHM_PARAM{
 #define	SEM_SEG_F		8			// S-part bit->weight for first half
 #define	SEM_SEG_L		9			// S-part bit->weight for first half
 #define	SEM_FX			10			// FFT and Cross Corr. for every sec.
+#define	SEM_POWER		11			// Total Power Measurement
 
 //-------- Chiled Processes
 #define SHM_ALLOC	"/usr/local/custom/bin/shm_alloc"
@@ -122,3 +122,4 @@ struct	SHM_PARAM{
 #define SHM_SEGDATA	"/usr/local/custom/bin/shm_segdata"
 #define CUDA_FFT	"/usr/local/custom/bin/cuda_fft_xspec"
 #define SPEC_VIEW	"/usr/local/custom/bin/shm_spec_view"
+#define POWER_VIEW	"/usr/local/custom/bin/shm_power_view"

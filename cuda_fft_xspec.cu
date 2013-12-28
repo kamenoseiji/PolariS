@@ -10,6 +10,19 @@
 #define	PARTNUM 2
 #define SCALEFACT 1.0/(NFFT* NsegSec2* PARTNUM)
 
+//-------- Convert SoD (Second of Day) into hour, min, and second
+int sod2hms(
+	int	sod,		// Second of Day
+	int	*hour,		// Hour
+	int	*min,		// Min
+	int	*sec)		// Sec
+{
+	*hour = sod / 3600;
+	*min  = (sod % 3600) / 60;
+	*sec  = (sod % 60);
+	return(*sec);
+}
+
 main(
 	int		argc,			// Number of Arguments
 	char	**argv )		// Pointer to Arguments
@@ -32,6 +45,10 @@ main(
 	char	fname[24];					// File Name [YYYYDOYHHMMSSIF]
 	char	fname_pre[16];
 	unsigned int		bitDist[64];
+	float	bitPower;
+	float wt[] = {-7.5, -6.5, -5.5, -4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5};
+	int		totalSample;
+	int		level_index;
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
 	short			*cuk5data_ptr;		// Pointer to K5 data
@@ -182,6 +199,13 @@ main(
 		for(index=0; index<Nif; index++){
 			if(file_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);}	// Save Pspec
 			if(power_ptr[index] != NULL){fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);}			// Save Bitdist
+			//-------- Total Power calculation
+			totalSample = 0;	bitPower = 0.0;
+			for(level_index=0; level_index<16; level_index++){
+				totalSample += bitDist[index* 16 + level_index];
+				bitPower	+= wt[level_index]* wt[level_index]* (float)bitDist[index* 16 + level_index];
+			}
+			param_ptr->power[index] = bitPower / (float)totalSample;
 		}
 		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
 		for(index=0; index<Nif/2; index++){
@@ -197,8 +221,8 @@ main(
 			param_ptr->current_rec = 0;
 		} else { param_ptr->current_rec ++; }
 
-		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0;
-		semop( param_ptr->sem_data_id, &sops, 1);
+		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
+		sops.sem_num = (ushort)SEM_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
 		printf("%04d %03d SOD=%d UT=%02d:%02d:%02d Rec %d / %d -- Succeeded.\n",
 			param_ptr->year, param_ptr->doy, sod, param_ptr->hour, param_ptr->min, param_ptr->sec, param_ptr->current_rec, param_ptr->integ_rec);
 	}	// End of 1-sec loop
@@ -212,3 +236,4 @@ main(
 
     return(0);
 }
+
