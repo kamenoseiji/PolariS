@@ -10,7 +10,7 @@ CCOMPL=gcc $(CFLAGS)
 NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
-PROGS=	polaris_start shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view shm_power_view k5sample_store k5sim
+PROGS=	polaris_start shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view shm_power_view k5sample_store k5sim PolariSplit
 GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft
@@ -26,6 +26,7 @@ OBJ_k5sample_store = k5sample_store.o shm_access.o
 OBJ_k5sim = k5sim.o shm_access.o
 OBJ_shm_segdata = shm_segdata.o
 OBJ_cuda_fft = cuda_fft_xspec.o shm_access.o timesystem.o
+OBJ_PolariSplit = PolariSplit.o
 #----------------- Compile and link ------------------------
 polaris_start : $(OBJ_start)
 	$(CCOMPL) -o $@ $(OBJ_start)
@@ -57,6 +58,9 @@ shm_power_view : $(OBJ_power_view)
 cuda_fft_xspec : $(OBJ_cuda_fft)
 	$(NVCC) -o $@ $(OBJ_cuda_fft) $(FFTLIB)
 
+PolariSplit : $(OBJ_PolariSplit)
+	$(CCOMPL) -o $@ $(OBJ_PolariSplit)
+
 clean :
 	\rm $(PROGS) *.o a.out core *.trace
 
@@ -77,6 +81,7 @@ cuda_fft_xspec.o:	cuda_fft_xspec.cu	shm_k5data.inc cuda_polaris.inc
 k5sample_store.o:	k5sample_store.c	shm_k5data.inc
 k5sim.o:	k5sim.c	shm_k5data.inc
 polaris_start.o:	polaris_start.c		shm_k5data.inc
+PolariSplit.o:		PolariSplit.c		shm_k5data.inc
 shm_alloc.o:		shm_alloc.c			shm_k5data.inc
 shm_init.o:			shm_init.c			shm_k5data.inc
 erase_shm.o:		erase_shm.c			shm_k5data.inc
