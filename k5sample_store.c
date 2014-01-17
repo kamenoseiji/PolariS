@@ -76,6 +76,7 @@ main(
 	param_ptr->num_st = K5HEAD_CH[num_IF];				// Number of IFs
 	param_ptr->qbit	  = K5HEAD_QB[qbit];				// Quantization Bits
 	param_ptr->segLen = SegLen;							// Segment length 
+	param_ptr->num_ch = SegLen/2;						// Number of spectral channel
 	param_ptr->segNum = NsegSec;						// Number of segments in 1 sec
 	num_read_cycle = param_ptr->sd_len / K5FIFO_SIZE;	// Number of read cycles
 	read_fraction  = param_ptr->sd_len % K5FIFO_SIZE;	// Fraction bytes
