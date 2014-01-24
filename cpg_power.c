@@ -63,7 +63,9 @@ int	cpg_power(
 
 		//-------- IF number
 		x_text = xmin*0.2 + xmax*0.8; y_text = ymin*0.1 + ymax*0.9;
-		sprintf(text, "IF = %d", st_index); cpgsci(3);	cpgtext( x_text, y_text, text );
+		sprintf(text, "IF = %d\0", st_index); cpgsci(3);	cpgtext( x_text, y_text, text );
+		y_text = ymin*0.15 + ymax*0.85;
+		sprintf(text, "%7.3f [dB]\0", plotY[0]); cpgsci(1);	cpgtext( x_text, y_text, text );
 	}
 	//-------- UTC
 	x_text = xmin*0.3 + xmax*0.7; y_text = 0.05*ymin + 0.95* ymax;
