@@ -25,7 +25,7 @@ OBJ_power_view = shm_power_view.o shm_access.o cpg_setup.o cpg_power.o
 OBJ_k5sample_store = k5sample_store.o shm_access.o
 OBJ_k5sim = k5sim.o shm_access.o
 OBJ_shm_segdata = shm_segdata.o
-OBJ_cuda_fft = cuda_fft_xspec.o shm_access.o timesystem.o gauss4bit.o
+OBJ_cuda_fft = cuda_fft_xspec.o shm_access.o
 OBJ_PolariSplit = PolariSplit.o
 #----------------- Compile and link ------------------------
 polaris_start : $(OBJ_start)
@@ -78,7 +78,6 @@ cuda_fft_xspec.o:	cuda_fft_xspec.cu	shm_k5data.inc cuda_polaris.inc
 .c.o:
 	$(CCOMPL) -c $*.c
 
-gauss4bit.o:		gauss4bit.c
 k5sample_store.o:	k5sample_store.c	shm_k5data.inc
 k5sim.o:	k5sim.c	shm_k5data.inc
 polaris_start.o:	polaris_start.c		shm_k5data.inc
