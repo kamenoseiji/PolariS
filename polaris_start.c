@@ -20,17 +20,23 @@ main(
 	char	cmd[8][16];					// Command line arguments
 	char	pgdev[16];					// PGPLOT Device
 	int		pid;						// Process ID
+	int		filter=0;					// Antialias filter width [MHz], 0 indicates THRU.
 	int		integPP=0;					// Maximum record number [sec]
+	int		bandWidth=8;				// Bandwidth [MHz]: 2/4/8/16/32/64/128/256/512/1024
+	int		qbit=4;						// Quantization bits: 1/2/4/8
 	int		statusFlag = 0;				// Used for option parser
 //------------------------------------------ Option Parser
-	while(( ch_option = getopt(argc, argv, "a:c:hi:p:v:")) != -1){
+	while(( ch_option = getopt(argc, argv, "a:b:c:f:hi:p:q:v:")) != -1){
 		switch(ch_option){
 			case 'a':	statusFlag |= (valid_bit(optarg) <<  8);	break;
-			case 'p':	statusFlag |= (valid_bit(optarg) << 12);	break;
+			case 'b':	bandWidth = atoi(optarg);	break;
 			case 'c':	statusFlag |= ((valid_bit(optarg) & 0x03) << 16);	break;
-			case 'i':	integPP = atoi(optarg);	break;
-			case 'v':	statusFlag |= PGPLOT; strcpy(pgdev, optarg);	break;
+			case 'f':	filter = pow2round(atoi(optarg));	break;
 			case 'h':	usage();	return(0);
+			case 'i':	integPP = atoi(optarg);	break;
+			case 'p':	statusFlag |= (valid_bit(optarg) << 12);	break;
+			case 'q':	qbit = pow2round(atoi(optarg));	break;
+			case 'v':	statusFlag |= PGPLOT; strcpy(pgdev, optarg);	break;
 		}	
 	}
 //------------------------------------------ Start shm_alloc()
@@ -49,7 +55,15 @@ main(
 	param_ptr->pid_shm_alloc = pid;
 //------------------------------------------ Set the validity bits
 	param_ptr->validity |= statusFlag;
-	param_ptr->integ_rec = integPP;
+	param_ptr->integ_rec = integPP;		// Duration of spectroscopy [sec]
+	param_ptr->filter 	 = filter;		// Antialiasl filter width [MHz]
+	param_ptr->qbit 	 = qbit;		// Quantization bits
+	param_ptr->segLen    = NFFT;		// FFT segment length
+	param_ptr->num_ch    = NFFT/2;		// Number of spectral channels
+	param_ptr->fsample   = pow2round(2* bandWidth)* 1000000;	// Sampling freq.
+	param_ptr->segNum    = pow2round((unsigned int)(2* param_ptr->fsample / param_ptr->segLen));		// Number of segments in 1 sec
+	printf("PARAM SET SEGNUM = %d \n", param_ptr->segNum);
+	printf("PARAM SET FSAMPLE = %d \n", param_ptr->fsample);
 //------------------------------------------ Start K5 sampling
 	if( fork() == 0){
 		pid = getpid(); sprintf(cmd[0], "k5sample_store");
@@ -102,10 +116,13 @@ int usage(){
 	fprintf(stderr, "USAGE: polaris_start [-chipv] \n");
 	fprintf(stderr, "  -a : Specify autocorrelation files to save.\n");
 	fprintf(stderr, "       0 -> CH0 is recorded, 12 -> CH1 and CH2 are recorded. Default: no autocorr, recorded. \n");
+	fprintf(stderr, "  -b : Specify bandwidth [MHz] for each IF. Default: 8 MHz.\n");
 	fprintf(stderr, "  -c : Specify crosscorrelation files not saved.\n");
 	fprintf(stderr, "       0 -> CH0xCH2 is recorded, 01 -> all Xcorrs are recorded. Default: no xcorr, recoreded. \n");
+	fprintf(stderr, "  -f : Specify antialias filter width [MHz]. Default: through\n");
 	fprintf(stderr, "  -h : Show help \n");
 	fprintf(stderr, "  -i : Recording time [sec]. Unless specified, polaris keep recordeng until shm_init.\n"); 
+	fprintf(stderr, "  -q : Specify quantization bits. Default: 4 bit.\n");
 	fprintf(stderr, "  -p : Specify bit-distibution files to save. Index is the same with -a option.\n");
 	fprintf(stderr, "  -v : Specify PGPLOT window to display spectra. /xw -> X window, /gif -> GIF, /null -> no view.\n");
 	return(0);

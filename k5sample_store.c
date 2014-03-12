@@ -57,27 +57,39 @@ main(
 //------------------------------------------ Start Sampling
 	rv = ioctl(fd_in, TDSIO_INIT);	printf("TDSIO_INIT result in %d\n", rv);
 	rv = ioctl(fd_in, TDSIO_BUFFER_CLEAR);  printf("TDSIO_BUFFER_CLEAR result in %d\n", rv);
+	rv = ioctl(fd_in, TDSIO_GET_YEAR, &year);
 
-	rv = ioctl(fd_in, TDSIO_GET_YEAR, &year);	printf("Year = %d\n", year+2000);
-	fsample = TDSIO_SAMPLING_16MHZ; rv = ioctl(fd_in, TDSIO_SET_FSAMPLE, &fsample);
-	qbit    = TDSIO_SAMPLING_4BIT;  rv = ioctl(fd_in, TDSIO_SET_RESOLUTIONBIT, &qbit);
+	//---- Set sampling frequency
+	index = param_ptr->fsample / 1000000; fsample=TDSIO_SAMPLING_1MHZ;
+	while(index > 1){	fsample++; index = index >> 1;}
+	rv = ioctl(fd_in, TDSIO_SET_FSAMPLE, &fsample);
+
+	//---- Set Quantization Bits
+	index = param_ptr->qbit;	qbit = TDSIO_SAMPLING_1BIT;
+	while(index > 1){	qbit++; index = index >> 1;}
+	rv = ioctl(fd_in, TDSIO_SET_RESOLUTIONBIT, &qbit);	
+
+	//---- Set Antialias Filter
+	if( (param_ptr->filter <= 0) || (param_ptr->filter > 16)){
+		filter = TDSIO_SAMPLING_THRU;
+	} else {
+		index = 16 / param_ptr->filter;	filter = TDSIO_SAMPLING_16M;
+		while(index > 1){	filter++; index = index >> 1;}
+	}
+	rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
+
+	//---- Set Number of IFs
 	num_IF  = TDSIO_SAMPLING_4CH;   rv = ioctl(fd_in, TDSIO_SET_CHMODE, &num_IF);
-	filter  = TDSIO_SAMPLING_8M;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
-//	filter  = TDSIO_SAMPLING_THRU;    rv = ioctl(fd_in, TDSIO_SET_FILTER, &filter);
-	rv = ioctl(fd_in,TDSIO_GET_FSAMPLE, &fsample); // printf("Fsample=%d\n", fsample);
-	rv = ioctl(fd_in,TDSIO_GET_RESOLUTIONBIT,  &qbit);  // printf("Qbit =%d\n", qbit);
-	rv = ioctl(fd_in,TDSIO_GET_CHMODE,  &num_IF);  // printf("Num of IF =%d\n", num_IF);
-	rv = ioctl(fd_in,TDSIO_GET_FILTER,  &filter);  // printf("Filter =%d\n", filter);
 
-	rv = ioctl(fd_in, TDSIO_SAMPLING_START);  // printf("TDSIO_SAMPLING_START result in %d\n", rv);
+	//---- Check Sampling Modes
+	rv = ioctl(fd_in,TDSIO_GET_FSAMPLE, &fsample);  	// printf("Fsample=%d\n", fsample);
+	rv = ioctl(fd_in,TDSIO_GET_RESOLUTIONBIT,  &qbit);	// printf("Qbit =%d\n", qbit);
+	rv = ioctl(fd_in,TDSIO_GET_CHMODE,  &num_IF);		// printf("Num of IF =%d\n", num_IF);
+	rv = ioctl(fd_in,TDSIO_GET_FILTER,  &filter);		// printf("Filter =%d\n", filter);
+	rv = ioctl(fd_in, TDSIO_SAMPLING_START);			// printf("TDSIO_SAMPLING_START result in %d\n", rv);
 
 	param_ptr->sd_len = MAX_SAMPLE_BUF;					// Size of 1-sec sampling data [bytes]
-	param_ptr->fsample= K5HEAD_FS[fsample]*1000;		// Sampling frequency [Hz]
 	param_ptr->num_st = K5HEAD_CH[num_IF];				// Number of IFs
-	param_ptr->qbit	  = K5HEAD_QB[qbit];				// Quantization Bits
-	param_ptr->segLen = SegLen;							// Segment length 
-	param_ptr->num_ch = SegLen/2;						// Number of spectral channel
-	param_ptr->segNum = NsegSec;						// Number of segments in 1 sec
 	num_read_cycle = param_ptr->sd_len / K5FIFO_SIZE;	// Number of read cycles
 	read_fraction  = param_ptr->sd_len % K5FIFO_SIZE;	// Fraction bytes
 	param_ptr->validity |= ACTIVE;		// Set Sampling Activity Bit to 1
@@ -96,7 +108,7 @@ main(
 		}
 
 	    //-------- Semaphore for Fiest Half--------
-		for(index=0; index<4; index++){
+		for(index=0; index<Nif; index++){
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 			semop(param_ptr->sem_data_id, &sops, 1);
 		}
@@ -107,7 +119,7 @@ main(
 		}
 		rv = read(fd_in, shm_write_ptr, read_fraction); shm_write_ptr += rv;
 	    //-------- Semaphore for Fiest Half--------
-		for(index=4; index<8; index++){
+		for(index=Nif; index<2*Nif; index++){
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 			semop(param_ptr->sem_data_id, &sops, 1);
 		}

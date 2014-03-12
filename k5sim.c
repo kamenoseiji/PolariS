@@ -65,11 +65,11 @@ main(
 	// param_ptr->fsample= K5HEAD_FS[fsample]*1000;		// Sampling frequency [Hz]
 	// param_ptr->num_st = K5HEAD_CH[num_IF];				// Number of IFs
 	// param_ptr->qbit	  = K5HEAD_QB[qbit];				// Quantization Bits
-	param_ptr->fsample=16000000;
-	param_ptr->num_st = 4;
-	param_ptr->qbit = 4;
-	param_ptr->segLen = SegLen;							// Segment length 
-	param_ptr->segNum = NsegSec;						// Number of segments in 1 sec
+	// param_ptr->fsample=16000000;
+	// param_ptr->num_st = 4;
+	// param_ptr->qbit = 4;
+	// param_ptr->segLen = NFFT;							// Segment length 
+	// param_ptr->segNum = NsegSec;						// Number of segments in 1 sec
 	num_read_cycle = param_ptr->sd_len / K5FIFO_SIZE;	// Number of read cycles
 	read_fraction  = param_ptr->sd_len % K5FIFO_SIZE;	// Fraction bytes
 	param_ptr->validity |= ACTIVE;		// Set Sampling Activity Bit to 1

@@ -24,15 +24,14 @@
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	32000000	// 256 Mbit = 32 MB
 #define	HALFSEC_OFFSET	 8000000	// 8M words per 1/2 sec
-#define	SegLen			262144		// Segment size (2^18)
 #define	NFFT			262144		// FFT points
-#define	NFFT2			131072		// Half of FFT points
-#define	NFFTC			131073		// NFFT/2+1 = Number of spectral points
-#define	NsegSec			128			// # of segments per sec (128)
-#define	NsegSec2		64			// # of segments per 1/2 sec (64)
+#define	NFFT2			(NFFT / 2)	// Half of FFT points
+#define	NFFTC			(NFFT2 + 1)	// NFFT/2+1 = Number of spectral points
+// #define	NsegSec		128			// # of segments per sec (128)
+// #define	NsegSec2	64			// # of segments per 1/2 sec (64)
 #define	Nif				4			// Number of IF
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
-#define	SEGDATA_SIZE	Nif* SegLen* NsegSec* sizeof(float)
+#define	SEGDATA_SIZE	Nif* NFFT* param_ptr->segNum* sizeof(float)
 #define	XSPEC_SIZE		Nif* Ncross* NFFT2* sizeof(float)
 #define	MAX_FILE_REC	1800		// Maximum number of records in output file
 
@@ -53,11 +52,11 @@ struct	SHM_PARAM{
 	int		sd_len;				// Size of 1-sec sampling data [bytes]
 	int		num_st;				// Total number of streams (IFs)
 	int		qbit;				// Quantization bits (1, 2, 4, or 8)
+	int		filter;				// Antialias Filter BW (MHz)
 	int		fsample;			// Sampling Frequency [Hz]
 	int		segLen;				// 1-segment length
 	int		segNum;				// Number of segments in 1 sec
 	int		num_ch;				// Number of spectral channels
-	int		dummy3;
 
 	//-------- Process ID
 	int		pid_shm_alloc;		// Process ID

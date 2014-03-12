@@ -37,7 +37,7 @@ int	cpg_spec(
 
 		/*-------- PLOT WINDOW --------*/
 		xmin = - 0.5*freq_incr;	xmax = xmin + ((double)NFFT2 - 0.5) * freq_incr;
-		ymin = -10.0;			ymax = 50.0;
+		ymin = -10.0;			ymax = 30.0;
 		for(index=0; index<NFFT2; index++){
 			plot_y[index] = 10.0* log10(xspec_ptr[st_index* NFFT2 + index]);	// autocorr. in dB
 		}

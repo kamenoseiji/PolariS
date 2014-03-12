@@ -50,7 +50,7 @@ int	cpg_power(
 			ymin = MIN(ymin, plotY[index]);
 			ymax = MAX(ymax, plotY[index]);
 		}
-		ymin -= 0.5; ymax += 0.5;
+		ymin -= 1.0; ymax += 1.0;
 
 		cpgsvp(	0.067+xwin_incr*nx_index, 0.067+xwin_incr*(nx_index+0.9),
 				0.067+ywin_incr*ny_index, 0.067+ywin_incr*(ny_index+0.9));

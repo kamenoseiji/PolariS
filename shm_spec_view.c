@@ -36,7 +36,7 @@ main(
 
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
 	cpgbeg(1, argv[1], 1, 1);
-	sprintf(xlabel, "Frequency [MHz]\0"); cpg_setup(xlabel);
+	sprintf(xlabel, "Frequency [Hz]\0"); cpg_setup(xlabel);
 	freq_ptr = (float *)malloc(NFFT2* sizeof(float));
 	freq_incr = (double)(param_ptr->fsample) / 2 / NFFT2;
 	for(index=0; index<NFFT2; index ++){
