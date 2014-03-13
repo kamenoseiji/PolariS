@@ -176,9 +176,8 @@ int	fileRecOpen(
 	char	fname[24];
 	if(param_ptr->validity & file_flag){
 		sprintf(fname, "%s.%s.%02d", fname_pre, fileType, file_index);
-		printf("%s\n", fname);
 		file_ptr[file_index] = fopen(fname, "w");
 		fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[file_index]);
-	} else { printf("FILE <- NULL\n"); file_ptr[file_index] = NULL;}
+	} else { file_ptr[file_index] = NULL;}
 	return(0);
 }

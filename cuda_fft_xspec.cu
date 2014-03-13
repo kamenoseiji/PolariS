@@ -12,10 +12,7 @@
 #define	PARTNUM 2
 #define SCALEFACT 2.0/(NFFT* NsegSec* PARTNUM)
 
-extern int prob4bit( double *,	double *);
-extern int initGauss4bit( double *,	double *);
 extern int gaussBit(int, unsigned int *, double *, double *);
-extern int sod2hms(int, int *, int *, int *);
 extern int k5utc(unsigned char *,	struct SHM_PARAM *);
 extern int fileRecOpen(struct SHM_PARAM *, int, int, char *, char *, FILE **);
 
@@ -34,7 +31,7 @@ main(
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
-	short	*k5data_ptr;				// Pointer to shared K5 data
+	char	*k5data_ptr;				// Pointer to shared K5 data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
 	FILE	*file_ptr[6];				// File Pointer to write
 	FILE	*power_ptr[4];				// Power File Pointer to write
@@ -43,7 +40,7 @@ main(
 	double	param[2], param_err[2];		// Gaussian parameters derived from bit distribution
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
-	short			*cuk5data_ptr;		// Pointer to K5 data
+	char			*cuk5data_ptr;		// Pointer to K5 data
 	cufftHandle		cufft_plan;			// 1-D FFT Plan, to be used in cufft
 	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
@@ -53,7 +50,7 @@ main(
 //------------------------------------------ Access to the SHARED MEMORY
 	shrd_param_id = shmget( SHM_PARAM_KEY, sizeof(struct SHM_PARAM), 0444);
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
-	k5data_ptr = (short *)shmat(param_ptr->shrd_k5data_id, NULL, SHM_RDONLY);
+	k5data_ptr = (char *)shmat(param_ptr->shrd_k5data_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
 	k5head_ptr = (unsigned char *)shmat(param_ptr->shrd_k5head_id, NULL, SHM_RDONLY);
 //------------------------------------------ Prepare for CuFFT
@@ -74,6 +71,7 @@ main(
 	for(seg_index = 0; seg_index < NsegSec; seg_index ++){
 		offset[seg_index] = seg_index* (param_ptr->fsample - param_ptr->segLen) / (NsegSec - 1);
 	}
+	bitmask = (0x01 << param_ptr->qbit) - 1;
 //------------------------------------------ K5 Header and Data
 	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
@@ -104,10 +102,10 @@ main(
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Segment data format
-			StartTimer();
+			// StartTimer();
 			cudaMemcpy(
-				&cuk5data_ptr[part_index* HALFSEC_OFFSET],
-				&k5data_ptr[part_index* HALFSEC_OFFSET],
+				&cuk5data_ptr[2* part_index* HALFSEC_OFFSET],
+				&k5data_ptr[2* part_index* HALFSEC_OFFSET],
 				MAX_SAMPLE_BUF/2,
 				cudaMemcpyHostToDevice);
 
@@ -117,20 +115,21 @@ main(
 			for(index=0; index < NsegSec2; index ++){
 				seg_index = part_index* NsegSec2 + index;
 				segform<<<Dg, Db>>>(
-					&cuk5data_ptr[offset[seg_index]],
+					&cuk5data_ptr[2* offset[seg_index]],
 					&cuRealData[index* Nif* NFFT],
 					NFFT);
 			}
 
 			//-------- Bit Distribution
 			for(index=0; index<HALFSEC_OFFSET; index++){
-				sample_addr = part_index* HALFSEC_OFFSET + index;
+				sample_addr = 2* (part_index* HALFSEC_OFFSET + index);
 				bitDist[     ((k5data_ptr[sample_addr]      ) & bitmask)] ++;	// IF-0 bitdist
 				bitDist[16 + ((k5data_ptr[sample_addr] >>  4) & bitmask)] ++;	// IF-1 bitdist
-				bitDist[32 + ((k5data_ptr[sample_addr] >>  8) & bitmask)] ++;	// IF-2 bitdist
-				bitDist[48 + ((k5data_ptr[sample_addr] >> 12) & bitmask)] ++;	// IF-3 bitdist
+				bitDist[32 + ((k5data_ptr[sample_addr+1]    ) & bitmask)] ++;	// IF-2 bitdist
+				bitDist[48 + ((k5data_ptr[sample_addr+1]>> 4) & bitmask)] ++;	// IF-3 bitdist
 			}
 
+			//-------- FFT Real -> Complex spectrum
 			cudaThreadSynchronize();
 			cufftExecR2C(cufft_plan, cuRealData, cuSpecData);			// FFT Time -> Freq
 			cudaThreadSynchronize();
@@ -155,7 +154,7 @@ main(
 					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
 					&cuXSpec[NFFT2], NFFT2);
 			}
-			printf("%lf [msec]\n", GetTimer());
+			// printf("%lf [msec]\n", GetTimer());
 			
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;

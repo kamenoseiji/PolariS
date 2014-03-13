@@ -120,30 +120,30 @@ __global__ void scaleCrossSpec(
 
 //-------- Format segment data using 4-bit quantized K5 data
 __global__ void segform(
-	short	*k5data_in,		// Input K5 Segmanet Data
+	char	*k5data_in,		// Input K5 Segmanet Data
 	float	*segdata,		// Output Segment Data
 	int		length)			// Length to copy
 {
 	int ix = blockIdx.x* blockDim.x + threadIdx.x;
-	short bitmask = 0x000f;				// 4-bit mask
+	unsigned char bitmask = 0x0f;				// 4-bit mask
 	float wt4[] = {-7.5, -6.5, -5.5, -4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5};
 	
 	if( (ix >= 0) && (ix < length) ){
-		segdata[           ix] = wt4[(k5data_in[ix]       ) & bitmask];
-		segdata[  length + ix] = wt4[(k5data_in[ix] >>  4 ) & bitmask];
-		segdata[2*length + ix] = wt4[(k5data_in[ix] >>  8 ) & bitmask];
-		segdata[3*length + ix] = wt4[(k5data_in[ix] >> 12 ) & bitmask];
+		segdata[           ix] = wt4[(k5data_in[2*ix]       ) & bitmask];
+		segdata[  length + ix] = wt4[(k5data_in[2*ix] >>  4 ) & bitmask];
+		segdata[2*length + ix] = wt4[(k5data_in[2*ix+1]     ) & bitmask];
+		segdata[3*length + ix] = wt4[(k5data_in[2*ix+1]>> 4 ) & bitmask];
 	}
 }
 
 //-------- Format segment data using 8-bit quantized K5 data
 __global__ void segform8bit(
-	int		*k5data_in,		// Input K5 Segmanet Data
+	char	*k5data_in,		// Input K5 Segmanet Data
 	float	*segdata,		// Output Segment Data
 	int		length)			// Length to copy
 {
 	int ix = blockIdx.x* blockDim.x + threadIdx.x;
-	int bitmask = 0x000000ff;		// 8-bit mask
+	unsigned char bitmask = 0xff;		// 8-bit mask
 	float wt8[] = {
 		-127.5,-126.5,-125.5,-124.5,-123.5,-122.5,-121.5,-120.5,-119.5,-118.5,-117.5,-116.5,-115.5,-114.5,-113.5,-112.5,
 		-111.5,-110.5,-109.5,-108.5,-107.5,-106.5,-105.5,-104.5,-103.5,-102.5,-101.5,-100.5, -99.5, -98.5, -97.5, -96.5,
@@ -162,9 +162,9 @@ __global__ void segform8bit(
 		  96.5,  97.5,  98.5,  99.5, 100.5, 101.5, 102.5, 103.5, 104.5, 105.5, 106.5, 107.5, 108.5, 109.5, 110.5, 111.5,
 		 112.5, 113.5, 114.5, 115.5, 116.5, 117.5, 118.5, 119.5, 120.5, 121.5, 122.5, 123.5, 124.5, 125.5, 126.5, 127.5};
 	if( (ix >= 0) && (ix < length) ){
-		segdata[           ix] = wt8[(k5data_in[ix]       ) & bitmask];
-		segdata[  length + ix] = wt8[(k5data_in[ix] >>  8 ) & bitmask];
-		segdata[2*length + ix] = wt8[(k5data_in[ix] >> 16 ) & bitmask];
-		segdata[3*length + ix] = wt8[(k5data_in[ix] >> 24 ) & bitmask];
+		segdata[           ix] = wt8[(k5data_in[4*ix]   ) & bitmask];
+		segdata[  length + ix] = wt8[(k5data_in[4*ix+1] ) & bitmask];
+		segdata[2*length + ix] = wt8[(k5data_in[4*ix+2] ) & bitmask];
+		segdata[3*length + ix] = wt8[(k5data_in[4*ix+3] ) & bitmask];
 	}
 }
