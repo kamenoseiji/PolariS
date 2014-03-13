@@ -10,12 +10,14 @@
 #include </usr/local/cuda-5.5/samples/common/inc/timer.h>
 #include "cuda_polaris.inc"
 #define	PARTNUM 2
-#define SCALEFACT 2.0/(NFFT* param_ptr->segNum* PARTNUM)
+#define SCALEFACT 2.0/(NFFT* NsegSec* PARTNUM)
 
 extern int prob4bit( double *,	double *);
 extern int initGauss4bit( double *,	double *);
-extern int gauss4bit(unsigned int *, double *, double *);
+extern int gaussBit(int, unsigned int *, double *, double *);
 extern int sod2hms(int, int *, int *, int *);
+extern int k5utc(unsigned char *,	struct SHM_PARAM *);
+extern int fileRecOpen(struct SHM_PARAM *, int, int, char *, char *, FILE **);
 
 main(
 	int		argc,			// Number of Arguments
@@ -36,11 +38,9 @@ main(
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
 	FILE	*file_ptr[6];				// File Pointer to write
 	FILE	*power_ptr[4];				// Power File Pointer to write
-	char	fname[24];					// File Name [YYYYDOYHHMMSSIF]
 	char	fname_pre[16];
 	unsigned int		bitDist[64];
 	double	param[2], param_err[2];		// Gaussian parameters derived from bit distribution
-	int		nsegsec2;					// Number of segments in a part
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
 	short			*cuk5data_ptr;		// Pointer to K5 data
@@ -56,11 +56,10 @@ main(
 	k5data_ptr = (short *)shmat(param_ptr->shrd_k5data_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
 	k5head_ptr = (unsigned char *)shmat(param_ptr->shrd_k5head_id, NULL, SHM_RDONLY);
-	nsegsec2 = param_ptr->segNum/2;		// Number of segments in a half period
 //------------------------------------------ Prepare for CuFFT
 	cudaMalloc( (void **)&cuk5data_ptr, MAX_SAMPLE_BUF);
-	cudaMalloc( (void **)&cuRealData, Nif* nsegsec2* NFFT * sizeof(cufftReal) );
-	cudaMalloc( (void **)&cuSpecData, Nif* nsegsec2* NFFTC* sizeof(cufftComplex) );
+	cudaMalloc( (void **)&cuRealData, Nif* NsegSec2* NFFT * sizeof(cufftReal) );
+	cudaMalloc( (void **)&cuSpecData, Nif* NsegSec2* NFFTC* sizeof(cufftComplex) );
 	cudaMalloc( (void **)&cuPowerSpec, Nif* NFFT2* sizeof(float));
 	cudaMalloc( (void **)&cuXSpec, 2* NFFT2* sizeof(float2));
 
@@ -68,12 +67,12 @@ main(
 		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1);
 	}
 
-	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nif* nsegsec2 ) != CUFFT_SUCCESS){
+	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nif* NsegSec2 ) != CUFFT_SUCCESS){
 		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1);
 	}
 //------------------------------------------ Parameters for S-part format
-	for(seg_index = 0; seg_index < param_ptr->segNum; seg_index ++){
-		offset[seg_index] = seg_index* (param_ptr->fsample - param_ptr->segLen) / (param_ptr->segNum - 1);
+	for(seg_index = 0; seg_index < NsegSec; seg_index ++){
+		offset[seg_index] = seg_index* (param_ptr->fsample - param_ptr->segLen) / (NsegSec - 1);
 	}
 //------------------------------------------ K5 Header and Data
 	param_ptr->current_rec = 0;
@@ -84,41 +83,17 @@ main(
 		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
-		sod = 0;
-		while(sod == 0){	// Wait until UTC to be valid
-			usleep(100000);	// Wait 100 msec
-			memcpy(&sod, &k5head_ptr[4], 2);
-			sod |= ((k5head_ptr[6] & 0x01) << 16);
-		}
-		sod2hms(sod, &(param_ptr->hour), &(param_ptr->min), &(param_ptr->sec));
-		param_ptr->doy  =  k5head_ptr[8] | ((k5head_ptr[9] & 0x01) << 8);
-		param_ptr->year = 2000 + ((k5head_ptr[9] >> 1) & 0x3f);
+		while(k5utc(k5head_ptr, param_ptr) == 0){	usleep(1000000);}
 
 		//-------- Open output files
 		if(param_ptr->current_rec == 0){
 			sprintf(fname_pre, "%04d%03d%02d%02d%02d", param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec );
-
 			for(index=0; index<Nif; index++){
-				//-------- Autocorrelation File Record Switch
-				if(param_ptr->validity & (A00_REC << index)){
-					sprintf(fname, "%s.%s.%02d", fname_pre, "A", index);
-					file_ptr[index] = fopen(fname, "w");
-					fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[index]);
-				} else { file_ptr[index] = NULL;}
-
-				//-------- Bit-distribution File Record Switch
-				if(param_ptr->validity & (P00_REC << index)){
-					sprintf(fname, "%s.%s.%02d", fname_pre, "P", index);
-					power_ptr[index] = fopen(fname, "w");
-					fwrite( param_ptr, sizeof(SHM_PARAM), 1, power_ptr[index]);
-				} else { power_ptr[index] = NULL;}
+				fileRecOpen(param_ptr, index, (A00_REC << index), fname_pre, "A", file_ptr);		// Autocorr
+				fileRecOpen(param_ptr, index, (P00_REC << index), fname_pre, "P", power_ptr);		// Bitpower
 			}
 			for(index=0; index<Nif/2; index++){
-				//-------- Crosscorrelation File Record Switch
-				if(param_ptr->validity & (C00_REC << index)){
-					sprintf(fname, "%s.%s.%02d", fname_pre, "C", index);  file_ptr[Nif + index]   = fopen(fname, "w");
-					fwrite( param_ptr, sizeof(SHM_PARAM), 1, file_ptr[Nif + index]);
-				} else { file_ptr[Nif + index] = NULL;}
+				fileRecOpen(param_ptr, index, (C00_REC << index), fname_pre, "C", &file_ptr[Nif]);	// Crosscorr
 			}
 		}
 
@@ -129,7 +104,7 @@ main(
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Segment data format
-//			StartTimer();
+			StartTimer();
 			cudaMemcpy(
 				&cuk5data_ptr[part_index* HALFSEC_OFFSET],
 				&k5data_ptr[part_index* HALFSEC_OFFSET],
@@ -139,8 +114,8 @@ main(
 			//-------- FFT Real -> Complex spectrum
 			cudaThreadSynchronize();
 			Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
-			for(index=0; index < nsegsec2; index ++){
-				seg_index = part_index* nsegsec2 + index;
+			for(index=0; index < NsegSec2; index ++){
+				seg_index = part_index* NsegSec2 + index;
 				segform<<<Dg, Db>>>(
 					&cuk5data_ptr[offset[seg_index]],
 					&cuRealData[index* Nif* NFFT],
@@ -162,7 +137,7 @@ main(
 
 			//---- Auto Corr
 			Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
-			for(seg_index=0; seg_index<nsegsec2; seg_index++){
+			for(seg_index=0; seg_index<NsegSec2; seg_index++){
 				for(index=0; index<Nif; index++){
 					accumPowerSpec<<<Dg, Db>>>(
 						&cuSpecData[(seg_index* Nif + index)* NFFTC],
@@ -170,7 +145,7 @@ main(
 				}
 			}
 			//---- Cross Corr
-			for(seg_index=0; seg_index<nsegsec2; seg_index++){
+			for(seg_index=0; seg_index<NsegSec2; seg_index++){
 				accumCrossSpec<<<Dg, Db>>>(
 					&cuSpecData[(seg_index* Nif)* NFFTC],
 					&cuSpecData[(seg_index* Nif + 2)* NFFTC],
@@ -180,7 +155,7 @@ main(
 					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
 					&cuXSpec[NFFT2], NFFT2);
 			}
-//			printf("%lf [msec]\n", GetTimer());
+			printf("%lf [msec]\n", GetTimer());
 			
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
@@ -193,7 +168,7 @@ main(
 			if(file_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);}	// Save Pspec
 			if(power_ptr[index] != NULL){fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);}			// Save Bitdist
 			//-------- Total Power calculation
-			gauss4bit( &bitDist[index*16], param, param_err );
+			gaussBit( 0x01<<(param_ptr->qbit), &bitDist[index*16], param, param_err );
 			param_ptr->power[index] = 1.0/(param[0]* param[0]);
 		}
 		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);

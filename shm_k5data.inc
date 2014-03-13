@@ -27,8 +27,8 @@
 #define	NFFT			262144		// FFT points
 #define	NFFT2			(NFFT / 2)	// Half of FFT points
 #define	NFFTC			(NFFT2 + 1)	// NFFT/2+1 = Number of spectral points
-// #define	NsegSec		128			// # of segments per sec (128)
-// #define	NsegSec2	64			// # of segments per 1/2 sec (64)
+#define	NsegSec		(param_ptr->segNum)	// # of segments per sec
+#define	NsegSec2	(NsegSec / 2)		// # of segments per 1/2 sec (64)
 #define	Nif				4			// Number of IF
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
 #define	SEGDATA_SIZE	Nif* NFFT* param_ptr->segNum* sizeof(float)
