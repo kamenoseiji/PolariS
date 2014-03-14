@@ -23,8 +23,8 @@
 #define	K5FIFO_SIZE		65536		// 64 kbytes
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	32000000	// 256 Mbit = 32 MB
-#define	HALFSEC_OFFSET	 8000000	// 8M words per 1/2 sec
-#define	NFFT			262144		// FFT points
+#define	HALFBUF			16000000	// 16Mbytes per 1/2 sec
+#define	NFFT			131072		// FFT points
 #define	NFFT2			(NFFT / 2)	// Half of FFT points
 #define	NFFTC			(NFFT2 + 1)	// NFFT/2+1 = Number of spectral points
 #define	NsegSec		(param_ptr->segNum)	// # of segments per sec

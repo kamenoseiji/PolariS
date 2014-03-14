@@ -26,7 +26,7 @@ main(
 	int		index;						// General Index
 	int		part_index;					// First and Last Part
 	int		seg_index;					// Index for Segment
-	int		offset[1024];
+	int		offset[1024];				// Segment offset position
 	int		sod = 0;					// Seconds of Day
 	int		nlevel;						// Number of quantized levels (2/4/16/256)
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
@@ -41,7 +41,7 @@ main(
 	double	param[2], param_err[2];		// Gaussian parameters derived from bit distribution
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
-	char			*cuk5data_ptr;		// Pointer to K5 data
+	unsigned char	*cuk5data_ptr;		// Pointer to K5 data
 	cufftHandle		cufft_plan;			// 1-D FFT Plan, to be used in cufft
 	cufftReal		*cuRealData;		// Time-beased data before FFT, every IF, every segment
 	cufftComplex	*cuSpecData;		// FFTed spectrum, every IF, every segment
@@ -70,10 +70,13 @@ main(
 	}
 	printf("NsegSec2 = %d\n", NsegSec2);
 //------------------------------------------ Parameters for S-part format
-	for(seg_index = 0; seg_index < NsegSec; seg_index ++){
-		offset[seg_index] = ((param_ptr->fsample - param_ptr->segLen) / (NsegSec - 1)) * seg_index;
+	for(seg_index = 0; seg_index < NsegSec2; seg_index ++){
+		offset[seg_index] = seg_index* (param_ptr->fsample/2 - param_ptr->segLen) / (NsegSec2 - 1);
 	}
-	nlevel = 0x01<<(param_ptr->qbit);
+	for(seg_index = NsegSec2; seg_index < NsegSec; seg_index ++){
+		offset[seg_index] = (seg_index - 1)* (param_ptr->fsample/2 - param_ptr->segLen/2) / (NsegSec2 - 1) ;
+	}
+	nlevel = 0x01<<(param_ptr->qbit);		// Number of levels = 2^qbit
 //------------------------------------------ K5 Header and Data
 	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
@@ -103,65 +106,45 @@ main(
 			sops.sem_num = (ushort)(4* part_index); sops.sem_op = (short)-1; sops.sem_flg = (short)0;
 			semop( param_ptr->sem_data_id, &sops, 1);
 
-			//-------- Segment data format
-			StartTimer();
-			cudaMemcpy(
-				&cuk5data_ptr[2* part_index* HALFSEC_OFFSET],
-				&k5data_ptr[2* part_index* HALFSEC_OFFSET],
-				MAX_SAMPLE_BUF/2,
-				cudaMemcpyHostToDevice);
+			//-------- Move K5-sample data onto GPU memory
+			// StartTimer();
+			cudaMemcpy( &cuk5data_ptr[part_index* HALFBUF], &k5data_ptr[part_index* HALFBUF], HALFBUF, cudaMemcpyHostToDevice);
 
-			//-------- FFT Real -> Complex spectrum
-			// cudaThreadSynchronize();
+			//-------- Segment Format and Bit Distribution
+			cudaThreadSynchronize();
 			Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
 			if( nlevel == 256){
 				for(index=0; index < NsegSec2; index ++){
 					seg_index = part_index* NsegSec2 + index;
-					segform8bit<<<Dg, Db>>>(
-						&cuk5data_ptr[4* offset[seg_index]],
-						&cuRealData[index* Nif* NFFT],
-						NFFT);
+					segform8bit<<<Dg, Db>>>( &cuk5data_ptr[4* offset[seg_index]], &cuRealData[index* Nif* NFFT], NFFT);
 				}
+				bitDist8( HALFBUF/2, &k5data_ptr[part_index* HALFBUF], bitDist);
 			} else{
 				for(index=0; index < NsegSec2; index ++){
 					seg_index = part_index* NsegSec2 + index;
-					segform4bit<<<Dg, Db>>>(
-						&cuk5data_ptr[2* offset[seg_index]],
-						&cuRealData[index* Nif* NFFT],
-						NFFT);
+					segform4bit<<<Dg, Db>>>( &cuk5data_ptr[2* offset[seg_index]], &cuRealData[index* Nif* NFFT], NFFT);
 				}
+				bitDist4( HALFBUF, &k5data_ptr[part_index* HALFBUF], bitDist);
 			}
 
-			//-------- Bit Distribution
-			if(nlevel == 256){ bitDist8( HALFSEC_OFFSET, &k5data_ptr[2* part_index* HALFSEC_OFFSET], bitDist);
-			} else { bitDist4( 2*HALFSEC_OFFSET, &k5data_ptr[2* part_index* HALFSEC_OFFSET], bitDist);}
-
 			//-------- FFT Real -> Complex spectrum
-			// cudaThreadSynchronize();
+			cudaThreadSynchronize();
 			cufftExecR2C(cufft_plan, cuRealData, cuSpecData);			// FFT Time -> Freq
-			// cudaThreadSynchronize();
+			cudaThreadSynchronize();
 
 			//---- Auto Corr
 			Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
 			for(seg_index=0; seg_index<NsegSec2; seg_index++){
 				for(index=0; index<Nif; index++){
-					accumPowerSpec<<<Dg, Db>>>(
-						&cuSpecData[(seg_index* Nif + index)* NFFTC],
-						&cuPowerSpec[index* NFFT2],  NFFT2);
+					accumPowerSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif + index)* NFFTC], &cuPowerSpec[index* NFFT2],  NFFT2);
 				}
 			}
 			//---- Cross Corr
 			for(seg_index=0; seg_index<NsegSec2; seg_index++){
-				accumCrossSpec<<<Dg, Db>>>(
-					&cuSpecData[(seg_index* Nif)* NFFTC],
-					&cuSpecData[(seg_index* Nif + 2)* NFFTC],
-					cuXSpec, NFFT2);
-				accumCrossSpec<<<Dg, Db>>>(
-					&cuSpecData[(seg_index* Nif + 1)*NFFTC],
-					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
-					&cuXSpec[NFFT2], NFFT2);
+				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif)* NFFTC], &cuSpecData[(seg_index* Nif + 2)* NFFTC], cuXSpec, NFFT2);
+				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif + 1)*NFFTC], &cuSpecData[(seg_index* Nif + 3)*NFFTC], &cuXSpec[NFFT2], NFFT2);
 			}
-			printf("%lf [msec]\n", GetTimer());
+			// printf("%lf [msec]\n", GetTimer());
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
 		scalePowerSpec<<<Dg, Db>>>(cuPowerSpec, SCALEFACT, Nif* NFFT2);
