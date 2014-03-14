@@ -123,7 +123,6 @@ main(
 			sops.sem_num = (ushort)index; sops.sem_op = (short)1; sops.sem_flg = (short)0;
 			semop(param_ptr->sem_data_id, &sops, 1);
 		}
-//		fwrite(k5data_ptr, MAX_SAMPLE_BUF, 1, dumpfile_ptr);
 	}
 //------------------------------------------ Stop Sampling
 //	fclose(dumpfile_ptr);

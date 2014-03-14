@@ -15,6 +15,8 @@
 extern int gaussBit(int, unsigned int *, double *, double *);
 extern int k5utc(unsigned char *,	struct SHM_PARAM *);
 extern int fileRecOpen(struct SHM_PARAM *, int, int, char *, char *, FILE **);
+extern int bitDist4(int, char *, unsigned int *);
+extern int bitDist8(int, char *, unsigned int *);
 
 main(
 	int		argc,			// Number of Arguments
@@ -24,10 +26,9 @@ main(
 	int		index;						// General Index
 	int		part_index;					// First and Last Part
 	int		seg_index;					// Index for Segment
-	int		offset[128];
-	int		sod = 0;						// Seconds of Day
-	int		sample_addr;
-	int		bitmask = 0x000f;
+	int		offset[1024];
+	int		sod = 0;					// Seconds of Day
+	int		nlevel;						// Number of quantized levels (2/4/16/256)
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
@@ -36,7 +37,7 @@ main(
 	FILE	*file_ptr[6];				// File Pointer to write
 	FILE	*power_ptr[4];				// Power File Pointer to write
 	char	fname_pre[16];
-	unsigned int		bitDist[64];
+	unsigned int		bitDist[1024];
 	double	param[2], param_err[2];		// Gaussian parameters derived from bit distribution
 
 	dim3			Dg, Db(512,1, 1);	// Grid and Block size
@@ -67,11 +68,12 @@ main(
 	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nif* NsegSec2 ) != CUFFT_SUCCESS){
 		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1);
 	}
+	printf("NsegSec2 = %d\n", NsegSec2);
 //------------------------------------------ Parameters for S-part format
 	for(seg_index = 0; seg_index < NsegSec; seg_index ++){
-		offset[seg_index] = seg_index* (param_ptr->fsample - param_ptr->segLen) / (NsegSec - 1);
+		offset[seg_index] = ((param_ptr->fsample - param_ptr->segLen) / (NsegSec - 1)) * seg_index;
 	}
-	bitmask = (0x01 << param_ptr->qbit) - 1;
+	nlevel = 0x01<<(param_ptr->qbit);
 //------------------------------------------ K5 Header and Data
 	param_ptr->current_rec = 0;
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);   // Disable stdout cache
@@ -81,7 +83,7 @@ main(
 		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
-		while(k5utc(k5head_ptr, param_ptr) == 0){	usleep(1000000);}
+		while(k5utc(k5head_ptr, param_ptr) == 0){	usleep(100000);}
 
 		//-------- Open output files
 		if(param_ptr->current_rec == 0){
@@ -102,7 +104,7 @@ main(
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Segment data format
-			// StartTimer();
+			StartTimer();
 			cudaMemcpy(
 				&cuk5data_ptr[2* part_index* HALFSEC_OFFSET],
 				&k5data_ptr[2* part_index* HALFSEC_OFFSET],
@@ -110,29 +112,34 @@ main(
 				cudaMemcpyHostToDevice);
 
 			//-------- FFT Real -> Complex spectrum
-			cudaThreadSynchronize();
+			// cudaThreadSynchronize();
 			Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
-			for(index=0; index < NsegSec2; index ++){
-				seg_index = part_index* NsegSec2 + index;
-				segform<<<Dg, Db>>>(
-					&cuk5data_ptr[2* offset[seg_index]],
-					&cuRealData[index* Nif* NFFT],
-					NFFT);
+			if( nlevel == 256){
+				for(index=0; index < NsegSec2; index ++){
+					seg_index = part_index* NsegSec2 + index;
+					segform8bit<<<Dg, Db>>>(
+						&cuk5data_ptr[4* offset[seg_index]],
+						&cuRealData[index* Nif* NFFT],
+						NFFT);
+				}
+			} else{
+				for(index=0; index < NsegSec2; index ++){
+					seg_index = part_index* NsegSec2 + index;
+					segform4bit<<<Dg, Db>>>(
+						&cuk5data_ptr[2* offset[seg_index]],
+						&cuRealData[index* Nif* NFFT],
+						NFFT);
+				}
 			}
 
 			//-------- Bit Distribution
-			for(index=0; index<HALFSEC_OFFSET; index++){
-				sample_addr = 2* (part_index* HALFSEC_OFFSET + index);
-				bitDist[     ((k5data_ptr[sample_addr]      ) & bitmask)] ++;	// IF-0 bitdist
-				bitDist[16 + ((k5data_ptr[sample_addr] >>  4) & bitmask)] ++;	// IF-1 bitdist
-				bitDist[32 + ((k5data_ptr[sample_addr+1]    ) & bitmask)] ++;	// IF-2 bitdist
-				bitDist[48 + ((k5data_ptr[sample_addr+1]>> 4) & bitmask)] ++;	// IF-3 bitdist
-			}
+			if(nlevel == 256){ bitDist8( HALFSEC_OFFSET, &k5data_ptr[2* part_index* HALFSEC_OFFSET], bitDist);
+			} else { bitDist4( 2*HALFSEC_OFFSET, &k5data_ptr[2* part_index* HALFSEC_OFFSET], bitDist);}
 
 			//-------- FFT Real -> Complex spectrum
-			cudaThreadSynchronize();
+			// cudaThreadSynchronize();
 			cufftExecR2C(cufft_plan, cuRealData, cuSpecData);			// FFT Time -> Freq
-			cudaThreadSynchronize();
+			// cudaThreadSynchronize();
 
 			//---- Auto Corr
 			Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
@@ -154,8 +161,7 @@ main(
 					&cuSpecData[(seg_index* Nif + 3)*NFFTC],
 					&cuXSpec[NFFT2], NFFT2);
 			}
-			// printf("%lf [msec]\n", GetTimer());
-			
+			printf("%lf [msec]\n", GetTimer());
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
 		scalePowerSpec<<<Dg, Db>>>(cuPowerSpec, SCALEFACT, Nif* NFFT2);
@@ -167,7 +173,7 @@ main(
 			if(file_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);}	// Save Pspec
 			if(power_ptr[index] != NULL){fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);}			// Save Bitdist
 			//-------- Total Power calculation
-			gaussBit( 0x01<<(param_ptr->qbit), &bitDist[index*16], param, param_err );
+			gaussBit( nlevel, &bitDist[nlevel* index], param, param_err );
 			param_ptr->power[index] = 1.0/(param[0]* param[0]);
 		}
 		cudaMemcpy(&xspec_ptr[4* NFFT2], cuXSpec, 2* NFFT2* sizeof(float2), cudaMemcpyDeviceToHost);
