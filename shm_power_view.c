@@ -4,7 +4,7 @@
 //	Created: 2013/12/23
 //
 #include "shm_k5data.inc"
-#include "k5dict.inc"
+// #include "k5dict.inc"
 #include <stdlib.h>
 #include <cpgplot.h>
 #include <math.h>

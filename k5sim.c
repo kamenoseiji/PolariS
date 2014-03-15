@@ -4,7 +4,7 @@
 //	Created: 2012/11/8
 //
 #include "shm_k5data.inc"
-#include "k5dict.inc"
+// #include "k5dict.inc"
 #include <stdint.h>
 
 main(
@@ -20,6 +20,13 @@ main(
 	unsigned char	*k5head_ptr;		// Pointer to the shared K5 header
 	unsigned char	*k5data_ptr;		// Pointer to the shared K5 data
 	unsigned char	*shm_write_ptr;		// Writing Pointer
+	int		K5HEAD_CH[] = {1, 4};		// 0:1ch, 1:4ch
+	int  K5HEAD_FS[] = {
+			40,		100,	200,	500,
+			1000,   2000,    4000,    8000,
+			16000,  32000,   64000,  128000,
+			256000, 512000, 1024000, 2048000};  // sampling frequency [kHz]
+
 
 	int		year;
 	int		index;

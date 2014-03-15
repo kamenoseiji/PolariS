@@ -14,6 +14,7 @@
 
 extern int gaussBit(int, unsigned int *, double *, double *);
 extern int k5utc(unsigned char *,	struct SHM_PARAM *);
+extern int segment_offset(struct SHM_PARAM *,	int *);
 extern int fileRecOpen(struct SHM_PARAM *, int, int, char *, char *, FILE **);
 extern int bitDist4(int, char *, unsigned int *);
 extern int bitDist8(int, char *, unsigned int *);
@@ -26,7 +27,7 @@ main(
 	int		index;						// General Index
 	int		part_index;					// First and Last Part
 	int		seg_index;					// Index for Segment
-	int		offset[1024];				// Segment offset position
+	int		offset[16384];				// Segment offset position
 	int		sod = 0;					// Seconds of Day
 	int		nlevel;						// Number of quantized levels (2/4/16/256)
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
@@ -62,20 +63,13 @@ main(
 	cudaMalloc( (void **)&cuXSpec, 2* NFFT2* sizeof(float2));
 
 	if(cudaGetLastError() != cudaSuccess){
-		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1);
-	}
+		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1); }
 
 	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nif* NsegSec2 ) != CUFFT_SUCCESS){
-		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1);
-	}
-	printf("NsegSec2 = %d\n", NsegSec2);
+		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1); }
 //------------------------------------------ Parameters for S-part format
-	for(seg_index = 0; seg_index < NsegSec2; seg_index ++){
-		offset[seg_index] = seg_index* (param_ptr->fsample/2 - param_ptr->segLen) / (NsegSec2 - 1);
-	}
-	for(seg_index = NsegSec2; seg_index < NsegSec; seg_index ++){
-		offset[seg_index] = (seg_index - 1)* (param_ptr->fsample/2 - param_ptr->segLen/2) / (NsegSec2 - 1) ;
-	}
+//	printf("NsegSec2 = %d\n", NsegSec2);
+	segment_offset(param_ptr, offset);
 	nlevel = 0x01<<(param_ptr->qbit);		// Number of levels = 2^qbit
 //------------------------------------------ K5 Header and Data
 	param_ptr->current_rec = 0;
@@ -86,7 +80,7 @@ main(
 		cudaMemset( cuXSpec, 0, 2* NFFT2* sizeof(float2));		// Clear Power Spec
 
 		//-------- UTC in the K5 header
-		while(k5utc(k5head_ptr, param_ptr) == 0){	usleep(100000);}
+		while(k5utc(k5head_ptr, param_ptr) == 0){	printf("%d\n", k5head_ptr[4]); usleep(100000);}
 
 		//-------- Open output files
 		if(param_ptr->current_rec == 0){
@@ -100,6 +94,7 @@ main(
 			}
 		}
 
+		//-------- Loop for half-sec period
 		memset(bitDist, 0, sizeof(bitDist));
 		for(part_index=0; part_index<PARTNUM; part_index ++){
 			//-------- Wait for the first half in the S-part
@@ -107,7 +102,7 @@ main(
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Move K5-sample data onto GPU memory
-			// StartTimer();
+			StartTimer();
 			cudaMemcpy( &cuk5data_ptr[part_index* HALFBUF], &k5data_ptr[part_index* HALFBUF], HALFBUF, cudaMemcpyHostToDevice);
 
 			//-------- Segment Format and Bit Distribution
@@ -144,7 +139,7 @@ main(
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif)* NFFTC], &cuSpecData[(seg_index* Nif + 2)* NFFTC], cuXSpec, NFFT2);
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif + 1)*NFFTC], &cuSpecData[(seg_index* Nif + 3)*NFFTC], &cuXSpec[NFFT2], NFFT2);
 			}
-			// printf("%lf [msec]\n", GetTimer());
+			printf("%lf [msec]\n", GetTimer());
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
 		scalePowerSpec<<<Dg, Db>>>(cuPowerSpec, SCALEFACT, Nif* NFFT2);

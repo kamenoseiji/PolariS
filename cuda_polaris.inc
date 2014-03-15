@@ -4,7 +4,7 @@
 //	Created: 2012/12/6
 //
 #include "shm_k5data.inc"
-#include "k5dict.inc"
+// #include "k5dict.inc"
 #include <cuda.h>
 #include <cufft.h>
 

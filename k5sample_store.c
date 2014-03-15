@@ -4,12 +4,11 @@
 //	Created: 2012/11/8
 //
 #include "shm_k5data.inc"
-#include "k5dict.inc"
+// #include "k5dict.inc"
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/tdsio.h>
 #define DEV_FILE "/dev/utds0"	// Device driver of VSSP32
-
 
 main(
 	int		argc,			// Number of Arguments
@@ -26,6 +25,7 @@ main(
 	unsigned char	*k5data_ptr;		// Pointer to the shared K5 data
 	unsigned char	*shm_write_ptr;		// Writing Pointer
 //	FILE	*dumpfile_ptr;				// Dump File
+	int		K5HEAD_CH[] = {1, 4};		// 0:1ch, 1:4ch
 
 	int		year;
 	int		index;
@@ -98,7 +98,7 @@ main(
 		if( param_ptr->validity & (FINISH + ABSFIN) ){	break; }
 		//-------- Read Header
 		rv = read(fd_in, k5head_ptr, K5HEAD_SIZE);
-//		printf("READ result in %d : %X\n", rv, (int)k5head_ptr);
+		// printf("READ result in %d : %X\n", rv, (int)k5head_ptr);
 
 		//-------- Read Data
 		shm_write_ptr = k5data_ptr;		// Initialize pointer 

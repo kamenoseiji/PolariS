@@ -24,15 +24,15 @@
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	32000000	// 256 Mbit = 32 MB
 #define	HALFBUF			16000000	// 16Mbytes per 1/2 sec
-#define	NFFT			131072		// FFT points
-#define	NFFT2			(NFFT / 2)	// Half of FFT points
-#define	NFFTC			(NFFT2 + 1)	// NFFT/2+1 = Number of spectral points
-#define	NsegSec		(param_ptr->segNum)	// # of segments per sec
-#define	NsegSec2	(NsegSec / 2)		// # of segments per 1/2 sec (64)
+#define	NFFT		(param_ptr->segLen)		// FFT points
+#define	NFFT2		(param_ptr->num_ch)		// Half of FFT points
+#define	NFFTC		(param_ptr->num_ch + 1)	// NFFT/2+1 = Number of spectral points
+#define	NsegSec		(param_ptr->segNum)		// # of segments per sec
+#define	NsegSec2	(param_ptr->segNum/ 2)	// # of segments per 1/2 sec (64)
 #define	Nif				4			// Number of IF
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
-#define	SEGDATA_SIZE	Nif* NFFT* param_ptr->segNum* sizeof(float)
-#define	XSPEC_SIZE		Nif* Ncross* NFFT2* sizeof(float)
+#define	SEGDATA_SIZE	Nif* param_ptr->segLen* param_ptr->segNum* sizeof(float)
+#define	XSPEC_SIZE		Nif* Ncross* param_ptr->num_ch* sizeof(float)
 #define	MAX_FILE_REC	1800		// Maximum number of records in output file
 
 //-------- Memory Map
@@ -115,6 +115,7 @@ struct	SHM_PARAM{
 #define	SEM_POWER		11			// Total Power Measurement
 
 //-------- Chiled Processes
+#define SHM_PARM	"/usr/local/custom/bin/shm_param"
 #define SHM_ALLOC	"/usr/local/custom/bin/shm_alloc"
 #define K5_SAMPLE	"/usr/local/custom/bin/k5sample_store"
 #define K5_SIM		"/usr/local/custom/bin/k5sim"

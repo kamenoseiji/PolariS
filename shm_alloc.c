@@ -17,18 +17,11 @@ main(
 	float	*segdata_ptr;				// Pointer to the shared segment data
 	float	*xspec_ptr;					// Pointer to the cross-power spectra
 	int		index;
+//------------------------------------------ Access to the Shared Param
+	if(shm_access(SHM_PARAM_KEY, sizeof(struct SHM_PARAM), &shrd_param_id, &param_ptr) == -1){
+		perror("  Error : shm_alloc() can't access to the shared memory!!");   return(-1);
+	};
 //------------------------------------------ ALLOC SHARED MEMORY
-    //-------- SHARED PARAMETERS --------
-    if(shm_init_create(
-        SHM_PARAM_KEY,					// ACCESS KEY
-        sizeof(struct SHM_PARAM),		// SIZE OF SHM
-        &shrd_param_id,					// SHM ID
-        &param_ptr) == -1){						// Pointer to the SHM
-		perror("Can't Create Shared Parameter!!\n"); return(-1);
-	}
-    param_ptr->shrd_param_id = shrd_param_id;   // Store PARAM ID
-	printf("Allocated %d bytes for Shared Param [%d]!\n",  sizeof(struct SHM_PARAM), param_ptr->shrd_param_id);
-
 	//-------- Semaphore for data area
 	param_ptr->sem_data_id = semget(SEM_DATA_KEY, SEM_NUM, IPC_CREAT | 0666);
 	for(index=0; index<SEM_NUM; index++){
@@ -60,18 +53,6 @@ main(
 	memset(k5data_ptr, 0x00, MAX_SAMPLE_BUF);
 	printf("Allocated %d bytes for Shared K5 data [%d]!\n", MAX_SAMPLE_BUF, param_ptr->shrd_k5data_id);
 
-    //-------- SHARED Segment Data --------
-#ifdef HIDOI
-	if(shm_init_create(
-		SEGDATA_KEY,					// ACCESS KEY
-		SEGDATA_SIZE,					// Data Area Size
-		&(param_ptr->shrd_seg_id),		// SHM ID
-		&segdata_ptr) == -1){			// Pointer to the shared data
-		perror("Can't Create Shared Segment data!!\n"); return(-1);
-	}
-	printf("Allocated %d bytes for Shared Segment data [%d]!\n", SEGDATA_SIZE, param_ptr->shrd_seg_id);
-#endif
-
     //-------- SHARED cross-power-spectra data area --------
 	if(shm_init_create(
 		XSPEC_KEY,						// ACCESS KEY
@@ -81,21 +62,6 @@ main(
 		perror("Can't Create Shared XSPEC data!!\n"); return(-1);
 	}
 	printf("Allocated %d bytes for Shared Xspec data [%d]!\n", XSPEC_SIZE, param_ptr->shrd_xspec_id);
-//------------------------------------------ WAIT UNTIL FINISH
-    while((param_ptr->validity & ABSFIN) == 0 ){
-
-		if( (param_ptr->integ_rec > 0) && (param_ptr->current_rec >= param_ptr->integ_rec - 1)){
-			param_ptr->validity |= FINISH;
-		}
-
-        //---- SOFT FINISH (Release SHM after 5 seconds) ----
-        if( (param_ptr->validity & FINISH) != 0){	// detect FINISH
-            sleep(5);
-            break;
-        }
-        sleep(1);
-    }
-//------------------------------------------ RELEASE the SHM
-    erase_shm(param_ptr);
-    return(0);
+//------------------------------------------ End of Process
+    exit(0);
 }

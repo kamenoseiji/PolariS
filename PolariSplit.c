@@ -47,7 +47,8 @@ int	fileExtract(
 	char	outName[24];			// Output File Name
 	struct	SHM_PARAM	param;		// File Header
 	float	*recdata;				// Power spectrum data record
-	int		recSize[] = {0, NFFT2* sizeof(float), 2* NFFT2* sizeof(float), 16* sizeof(int)};		// Record size [bytes]
+//	int		recSize[] = {0, NFFT2* sizeof(float), 2* NFFT2* sizeof(float), 16* sizeof(int)};		// Record size [bytes]
+	int		recSize;				// Record size [bytes]
 	int		filetype;				// 0:undef, 1:Acorr, 2:Ccorr, 3:bitDist
 	int		startSod, endSod;		// Start and End second of day
 	int		startH, startM, startS, endH, endM, endS;
@@ -58,10 +59,16 @@ int	fileExtract(
 	//-------- Open File
 	if((filetype = fileType(fname)) == 0){ return(-1);}
 	if((file_ptr = fopen(fname, "r")) == NULL){ return(-1);}	// Open input file
-	recdata = malloc(recSize[filetype]);
 
 	//-------- Read and Write Header
 	fread(&param, sizeof(struct SHM_PARAM), 1, file_ptr);
+	switch(filetype){
+		case 0:		recSize = 0;									break;		// Not-available file
+		case 1:		recSize = param.num_ch* sizeof(float);			break;		// Autocorr file
+		case 2:		recSize = param.segLen* sizeof(float);			break;		// Crosscorr file
+		case 3:		recSize = (0x01 << param.qbit)* sizeof(int);	break;		// Bit distribution
+	}
+	recdata = malloc(recSize);
 	startSod = hms2sod(param.hour, param.min, param.sec);
 	endSod = startSod + EndPP; startSod += StartPP;
 	sod2hms(startSod, &startH, &startM, &startS);
@@ -69,7 +76,7 @@ int	fileExtract(
 	printf("Extract %02d:%02d:%02d - %02d:%02d:%02d\n", startH, startM, startS, endH, endM, endS);
 
 	//-------- Skip to the start position
-	fseek(file_ptr, StartPP* recSize[filetype], SEEK_CUR);
+	fseek(file_ptr, StartPP* recSize, SEEK_CUR);
 	param.hour = startH;	param.min = startM;		param.sec = startS;
 	sprintf(outName, "%04d%03d%02d%02d%02d.%c.%c%c", param.year, param.doy, param.hour, param.min, param.sec, fname[14], fname[16], fname[17]);
 	printf("Output File Name = %s\n", outName);
@@ -78,8 +85,8 @@ int	fileExtract(
 
 	//-------- Read and Write Records
 	for(index=StartPP; index<=EndPP; index++){
-		if(fread(recdata, recSize[filetype], 1, file_ptr) != 1){printf("File Read Error [%d]\n", index); break;}
-		fwrite(recdata, recSize[filetype], 1, file_out);
+		if(fread(recdata, recSize, 1, file_ptr) != 1){printf("File Read Error [%d]\n", index); break;}
+		fwrite(recdata, recSize, 1, file_out);
 	}
 	
 	//-------- Close File

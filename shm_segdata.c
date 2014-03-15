@@ -4,7 +4,7 @@
 //	Created: 2012/12/12
 //
 #include "shm_k5data.inc"
-#include "k5dict.inc"
+// #include "k5dict.inc"
 #define	IF_index	1		// Command line arguments
 #define	ARGNUM		2		// Number of arguments
 
@@ -18,6 +18,7 @@ main(
 	unsigned char		*k5head_ptr;	// Pointer to the shared K5 header
 	short 	*k5init_ptr, *k5data_ptr;	// Pointer to the shared K5 data
 	float	*seginit_ptr, *segdata_ptr;	// Pointer to write the segment data
+	int		k5bitshift[] = {0, 4, 8, 12};	// Bitshift for 4-bit/sample
 	int		index, index_seg;
 	int		index_if, index_smp;
 	int		overlap[128];				// Number of samples to overlap
@@ -25,6 +26,7 @@ main(
 	int		mean_offset, fraction;
 	int		bitshift;					// Bit Shift to pick up the IF data
 	short	bitmask = 0x000f;			// 4-Bit mask to pick up the IF data
+	float	wt4[] = {-7.5, -6.5, -5.5, -4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5};
 //-------- Argument Check
 	if(argc < ARGNUM){
 		perror(" IF number must be specified!!\n");

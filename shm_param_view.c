@@ -4,7 +4,7 @@
 //	Created: 2012/11/8
 //
 #include "shm_k5data.inc"
-#include "k5dict.inc"
+// #include "k5dict.inc"
 
 main(
 	int		argc,			// Number of Arguments
@@ -55,24 +55,24 @@ main(
 		memcpy(&sod, &k5head_ptr[4], 2);
 		sod |= (k5head_ptr[6] & 0x01) << 17; sod2hms(sod, &hour, &min, &sec);
 //		printf("UT=%02d:%02d:%02d : %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f\r",
-		printf("UT=%02d:%02d:%02d : %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f\n",
-			hour, min, sec,
-			wt4[ k5data_ptr[0] & 0x0f],
-			wt4[(k5data_ptr[0] & 0xf0) >> 4],
-			wt4[ k5data_ptr[1] & 0x0f],
-			wt4[(k5data_ptr[1] & 0xf0) >> 4],
-			wt4[ k5data_ptr[2] & 0x0f],
-			wt4[(k5data_ptr[2] & 0xf0) >> 4],
-			wt4[ k5data_ptr[3] & 0x0f],
-			wt4[(k5data_ptr[3] & 0xf0) >> 4],
-			wt4[ k5data_ptr[4] & 0x0f],
-			wt4[(k5data_ptr[4] & 0xf0) >> 4],
-			wt4[ k5data_ptr[5] & 0x0f],
-			wt4[(k5data_ptr[5] & 0xf0) >> 4],
-			wt4[ k5data_ptr[6] & 0x0f],
-			wt4[(k5data_ptr[6] & 0xf0) >> 4],
-			wt4[ k5data_ptr[7] & 0x0f],
-			wt4[(k5data_ptr[7] & 0xf0) >> 4]);
+//		printf("UT=%02d:%02d:%02d : %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f %4.1f\n",
+//			hour, min, sec,
+//			wt4[ k5data_ptr[0] & 0x0f],
+//			wt4[(k5data_ptr[0] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[1] & 0x0f],
+//			wt4[(k5data_ptr[1] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[2] & 0x0f],
+//			wt4[(k5data_ptr[2] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[3] & 0x0f],
+//			wt4[(k5data_ptr[3] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[4] & 0x0f],
+//			wt4[(k5data_ptr[4] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[5] & 0x0f],
+//			wt4[(k5data_ptr[5] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[6] & 0x0f],
+//			wt4[(k5data_ptr[6] & 0xf0) >> 4],
+//			wt4[ k5data_ptr[7] & 0x0f],
+//			wt4[(k5data_ptr[7] & 0xf0) >> 4]);
 
 		//-------- Wait for Semaphore
 		sops.sem_num = (ushort)1;	sops.sem_op = (short)-1;	sops.sem_flg = (short)0;

@@ -218,3 +218,29 @@ int bitDist8(
 	}
 	return(nbytes);
 }
+
+//-------- Offset to the pointer of  segmant
+int	segment_offset(
+	struct SHM_PARAM	*param_ptr,	// Pointer to shared parameter
+	int					*offset_ptr)
+{
+	int			seg_index;		// Index for segments
+	long long	seg_offset;		// Offset to the segment head
+
+	//-------- First Half
+	for(seg_index = 0; seg_index < NsegSec2; seg_index ++){
+		seg_offset = (long long)seg_index* ((long long)param_ptr->fsample/2 - (long long)param_ptr->segLen);
+		seg_offset /= (long long)(NsegSec2 - 1);
+		offset_ptr[seg_index] = (int)seg_offset;
+	}
+
+	//-------- Last Half
+	for(seg_index = NsegSec2; seg_index < NsegSec; seg_index ++){
+		seg_offset = (long long)(seg_index - 1)* ((long long)param_ptr->fsample/2 - (long long)param_ptr->segLen/2);
+		seg_offset /= (long long)(NsegSec2 - 1);
+		offset_ptr[seg_index] = (int)seg_offset;
+	}
+
+	return(NsegSec);
+}
+

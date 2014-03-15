@@ -10,14 +10,15 @@ CCOMPL=gcc $(CFLAGS)
 NVCC=nvcc -I/usr/local/cuda/include -I/usr/local/cuda/common/inc
 FCOMPL=gfortran 
 #------- Followings are PASS or DIRECTORY -------
-PROGS=	polaris_start shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view shm_power_view k5sample_store k5sim PolariSplit
+PROGS=	polaris_start shm_param shm_alloc shm_init shm_param_view cuda_fft_xspec shm_segdata shm_spec_view shm_power_view k5sample_store k5sim PolariSplit
 GRLIBS= -L/usr/include/X11 -lX11
 MATH=	-lm
 FFTLIB= -lcufft
 CUDALIB= -lcutil
 #----------------- MAPPING ------------------------
 OBJ_start= polaris_start.o shm_access.o pow2round.o
-OBJ_shm_alloc= shm_alloc.o shm_init_create.o shm_access.o erase_shm.o
+OBJ_shm_param= shm_param.o shm_init_create.o shm_access.o erase_shm.o
+OBJ_shm_alloc= shm_alloc.o shm_init_create.o shm_access.o
 OBJ_shm_init = shm_init.o shm_access.o
 OBJ_shm_view = shm_param_view.o shm_access.o timesystem.o
 OBJ_spec_view = shm_spec_view.o shm_access.o cpg_setup.o cpg_spec.o
@@ -36,6 +37,9 @@ k5sample_store : $(OBJ_k5sample_store)
 
 k5sim : $(OBJ_k5sim)
 	$(CCOMPL) -o $@ $(OBJ_k5sim)
+
+shm_param : $(OBJ_shm_param)
+	$(CCOMPL) -o $@ $(OBJ_shm_param)
 
 shm_alloc : $(OBJ_shm_alloc)
 	$(CCOMPL) -o $@ $(OBJ_shm_alloc)
@@ -85,6 +89,7 @@ k5sim.o:			k5sim.c				shm_k5data.inc
 polaris_start.o:	polaris_start.c		shm_k5data.inc
 pow2round.o:		pow2round.c
 PolariSplit.o:		PolariSplit.c		shm_k5data.inc
+shm_param.o:		shm_param.c			shm_k5data.inc
 shm_alloc.o:		shm_alloc.c			shm_k5data.inc
 shm_init.o:			shm_init.c			shm_k5data.inc
 erase_shm.o:		erase_shm.c			shm_k5data.inc
