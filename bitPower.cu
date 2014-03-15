@@ -184,7 +184,7 @@ int	fileRecOpen(
 //-------- 4-Bit Distribution Counter
 int bitDist4(
 	int				nbytes,		// Number of bytes to examine
-	char			*data_ptr,	// 4-bit quantized data stream (4 IF)
+	unsigned char	*data_ptr,	// 4-bit quantized data stream (4 IF)
 	unsigned int	*bitDist)	// Bit distribution counter	(4 IF x 16 levels)
 {
 	int	bitmask = 0x0f;			// 4-bit mask
@@ -203,18 +203,18 @@ int bitDist4(
 //-------- 8-Bit Distribution Counter
 int bitDist8(
 	int				nbytes,		// Number of bytes to examine
-	char			*data_ptr,	// 4-bit quantized data stream (4 IF)
+	unsigned char	*data_ptr,	// 4-bit quantized data stream (4 IF)
 	unsigned int	*bitDist)	// Bit distribution counter	(4 IF x 256 levels)
 {
-	int	bitmask = 0xff;			// 8-bit mask
+//	int	bitmask = 0xff;			// 8-bit mask
 	int	nlevel  = 256;			// Number of levels
 	int index;					// Counter
 
 	for(index=0; index<nbytes; index+=4){
-		bitDist[             (data_ptr[index  ] & bitmask)] ++;	// IF-0 bitdist
-		bitDist[    nlevel + (data_ptr[index+1] & bitmask)] ++;	// IF-1 bitdist
-		bitDist[ 2* nlevel + (data_ptr[index+2] & bitmask)] ++;	// IF-2 bitdist
-		bitDist[ 3* nlevel + (data_ptr[index+3] & bitmask)] ++;	// IF-3 bitdist
+		bitDist[             data_ptr[index  ] ] ++;	// IF-0 bitdist
+		bitDist[    nlevel + data_ptr[index+1] ] ++;	// IF-1 bitdist
+		bitDist[ 2* nlevel + data_ptr[index+2] ] ++;	// IF-2 bitdist
+		bitDist[ 3* nlevel + data_ptr[index+3] ] ++;	// IF-3 bitdist
 	}
 	return(nbytes);
 }

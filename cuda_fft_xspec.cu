@@ -16,8 +16,8 @@ extern int gaussBit(int, unsigned int *, double *, double *);
 extern int k5utc(unsigned char *,	struct SHM_PARAM *);
 extern int segment_offset(struct SHM_PARAM *,	int *);
 extern int fileRecOpen(struct SHM_PARAM *, int, int, char *, char *, FILE **);
-extern int bitDist4(int, char *, unsigned int *);
-extern int bitDist8(int, char *, unsigned int *);
+extern int bitDist4(int, unsigned char *, unsigned int *);
+extern int bitDist8(int, unsigned char *, unsigned int *);
 
 main(
 	int		argc,			// Number of Arguments
@@ -33,7 +33,7 @@ main(
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
 	struct	sembuf		sops;			// Semaphore for data access
-	char	*k5data_ptr;				// Pointer to shared K5 data
+	unsigned char	*k5data_ptr;		// Pointer to shared K5 data
 	float	*xspec_ptr;					// Pointer to 1-sec-integrated Power Spectrum
 	FILE	*file_ptr[6];				// File Pointer to write
 	FILE	*power_ptr[4];				// Power File Pointer to write
@@ -52,7 +52,7 @@ main(
 //------------------------------------------ Access to the SHARED MEMORY
 	shrd_param_id = shmget( SHM_PARAM_KEY, sizeof(struct SHM_PARAM), 0444);
 	param_ptr  = (struct SHM_PARAM *)shmat(shrd_param_id, NULL, 0);
-	k5data_ptr = (char *)shmat(param_ptr->shrd_k5data_id, NULL, SHM_RDONLY);
+	k5data_ptr = (unsigned char *)shmat(param_ptr->shrd_k5data_id, NULL, SHM_RDONLY);
 	xspec_ptr  = (float *)shmat(param_ptr->shrd_xspec_id, NULL, 0);
 	k5head_ptr = (unsigned char *)shmat(param_ptr->shrd_k5head_id, NULL, SHM_RDONLY);
 //------------------------------------------ Prepare for CuFFT
@@ -113,7 +113,7 @@ main(
 					seg_index = part_index* NsegSec2 + index;
 					segform8bit<<<Dg, Db>>>( &cuk5data_ptr[4* offset[seg_index]], &cuRealData[index* Nif* NFFT], NFFT);
 				}
-				bitDist8( HALFBUF/2, &k5data_ptr[part_index* HALFBUF], bitDist);
+				bitDist8( HALFBUF, &k5data_ptr[part_index* HALFBUF], bitDist);
 			} else{
 				for(index=0; index < NsegSec2; index ++){
 					seg_index = part_index* NsegSec2 + index;
@@ -149,7 +149,7 @@ main(
 		cudaMemcpy(xspec_ptr, cuPowerSpec, Nif* NFFT2* sizeof(float), cudaMemcpyDeviceToHost);
 		for(index=0; index<Nif; index++){
 			if(file_ptr[index] != NULL){fwrite(&xspec_ptr[index* NFFT2], sizeof(float), NFFT2, file_ptr[index]);}	// Save Pspec
-			if(power_ptr[index] != NULL){fwrite(&bitDist[index* 16], sizeof(int), 16, power_ptr[index]);}			// Save Bitdist
+			if(power_ptr[index] != NULL){fwrite(&bitDist[index* nlevel], sizeof(int), nlevel, power_ptr[index]);}			// Save Bitdist
 			//-------- Total Power calculation
 			gaussBit( nlevel, &bitDist[nlevel* index], param, param_err );
 			param_ptr->power[index] = 1.0/(param[0]* param[0]);
