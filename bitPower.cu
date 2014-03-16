@@ -216,6 +216,10 @@ int bitDist8(
 		bitDist[ 2* nlevel + data_ptr[index+2] ] ++;	// IF-2 bitdist
 		bitDist[ 3* nlevel + data_ptr[index+3] ] ++;	// IF-3 bitdist
 	}
+//	for(index=0; index<nlevel; index++){
+//		printf("%d, ", bitDist[index]);
+//	}
+//	printf("\n");
 	return(nbytes);
 }
 

@@ -28,7 +28,6 @@ main(
 	int		part_index;					// First and Last Part
 	int		seg_index;					// Index for Segment
 	int		offset[16384];				// Segment offset position
-	int		sod = 0;					// Seconds of Day
 	int		nlevel;						// Number of quantized levels (2/4/16/256)
 	unsigned char		*k5head_ptr;	// Pointer to the K5 header
 	struct	SHM_PARAM	*param_ptr;		// Pointer to the Shared Param
@@ -102,7 +101,7 @@ main(
 			semop( param_ptr->sem_data_id, &sops, 1);
 
 			//-------- Move K5-sample data onto GPU memory
-			StartTimer();
+//			StartTimer();
 			cudaMemcpy( &cuk5data_ptr[part_index* HALFBUF], &k5data_ptr[part_index* HALFBUF], HALFBUF, cudaMemcpyHostToDevice);
 
 			//-------- Segment Format and Bit Distribution
@@ -139,7 +138,7 @@ main(
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif)* NFFTC], &cuSpecData[(seg_index* Nif + 2)* NFFTC], cuXSpec, NFFT2);
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif + 1)*NFFTC], &cuSpecData[(seg_index* Nif + 3)*NFFTC], &cuXSpec[NFFT2], NFFT2);
 			}
-			printf("%lf [msec]\n", GetTimer());
+//			printf("%lf [msec]\n", GetTimer());
 		}	// End of part loop
 		Dg.x = Nif* NFFT2/512; Dg.y=1; Dg.z=1;
 		scalePowerSpec<<<Dg, Db>>>(cuPowerSpec, SCALEFACT, Nif* NFFT2);
@@ -170,8 +169,8 @@ main(
 
 		sops.sem_num = (ushort)SEM_FX; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
 		sops.sem_num = (ushort)SEM_POWER; sops.sem_op = (short)1; sops.sem_flg = (short)0; semop( param_ptr->sem_data_id, &sops, 1);
-		printf("%04d %03d SOD=%d UT=%02d:%02d:%02d Rec %d / %d -- Succeeded.\n",
-			param_ptr->year, param_ptr->doy, sod, param_ptr->hour, param_ptr->min, param_ptr->sec, param_ptr->current_rec, param_ptr->integ_rec);
+		printf("%04d %03d UT %02d:%02d:%02d Rec %d / %d -- Power = %8.3f %8.3f %8.3f %8.3f\n",
+			param_ptr->year, param_ptr->doy, param_ptr->hour, param_ptr->min, param_ptr->sec, param_ptr->current_rec, param_ptr->integ_rec, param_ptr->power[0], param_ptr->power[1], param_ptr->power[2], param_ptr->power[3]);
 	}	// End of 1-sec loop
 /*
 -------------------------------------------- RELEASE the SHM
