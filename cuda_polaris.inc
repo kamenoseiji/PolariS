@@ -125,14 +125,15 @@ __global__ void segform4bit(
 	int		length)				// Length to copy
 {
 	float	bias = 7.5;			// Mean value
+	float	scale = 0.0625;		// Scaling by 1/16
 	int ix = blockIdx.x* blockDim.x + threadIdx.x;
 	unsigned char bitmask = 0x0f;				// 4-bit mask
 	
 	if( (ix >= 0) && (ix < length) ){
-		segdata[           ix] = (float)((k5data_in[2*ix])   & bitmask) - bias;
-		segdata[  length + ix] = (float)((k5data_in[2*ix] >>  4)      ) - bias;
-		segdata[2*length + ix] = (float)((k5data_in[2*ix+1]) & bitmask) - bias;
-		segdata[3*length + ix] = (float)((k5data_in[2*ix+1]>> 4)      ) - bias;
+		segdata[           ix] = ((float)((k5data_in[2*ix])   & bitmask) - bias)* scale;
+		segdata[  length + ix] = ((float)((k5data_in[2*ix] >>  4)      ) - bias)* scale;
+		segdata[2*length + ix] = ((float)((k5data_in[2*ix+1]) & bitmask) - bias)* scale;
+		segdata[3*length + ix] = ((float)((k5data_in[2*ix+1]>> 4)      ) - bias)* scale;
 	}
 }
 
@@ -143,7 +144,7 @@ __global__ void segform8bit(
 	int		length)			// Length to copy
 {
 	float	bias = 127.5;		// Mean value
-	float	scale = 0.0625;		// Scaling by 1/16
+	float	scale = 0.00390625;	// Scaling by 1/256
 	int ix = blockIdx.x* blockDim.x + threadIdx.x;
 	if( (ix >= 0) && (ix < length) ){
 		segdata[           ix] = ((float)k5data_in[4*ix]  - bias)*scale;

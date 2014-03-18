@@ -5,6 +5,7 @@
 #include "shm_k5data.inc"
 #include <cpgplot.h>
 #include <math.h>
+#define MAX(a,b)	a>b?a:b		// Larger value
 
 int	cpg_spec(
 	struct SHM_PARAM	*param_ptr,
@@ -22,6 +23,7 @@ int	cpg_spec(
 	double	freq_incr;				// Frequency Increment
 	float	xwin_incr,	ywin_incr;	// Position Increment of Panels
 	float	x_text, y_text;			// Text Drawing Position
+	float	peakVal;				// Line peak value to display [dB]
 	char	text[256];				// Text to Write
 
 	cpgsch(0.5);
@@ -35,12 +37,16 @@ int	cpg_spec(
 		nx_index	= st_index % nxwin;
 		ny_index	= st_index / nxwin;
 
-		/*-------- PLOT WINDOW --------*/
+		//-------- PLOT WINDOW --------
 		xmin = - 0.5*freq_incr;	xmax = xmin + ((double)NFFT2 - 0.5) * freq_incr;
-//		ymin = -10.0;			ymax = 30.0;
-		ymin = -5.0;			ymax = 20.0;
+		ymin = -25.0;			ymax = -5.0;
+		peakVal = -1.0e6;		// Reset Peak Value
 		for(index=0; index<NFFT2; index++){
 			plot_y[index] = 10.0* log10(xspec_ptr[st_index* NFFT2 + index]);	// autocorr. in dB
+		}
+		//-------- Peak Search
+		for(index=0.1*NFFT2; index<0.9*NFFT2; index++){
+			peakVal = MAX( peakVal, plot_y[index] );
 		}
 		cpgsvp(	0.067+xwin_incr*nx_index, 0.067+xwin_incr*(nx_index+0.9),
 				0.067+ywin_incr*ny_index, 0.067+ywin_incr*(ny_index+0.9));
@@ -52,8 +58,8 @@ int	cpg_spec(
 		cpgsci(3);	cpgline( NFFT2, freq_ptr, plot_y );
 
 		//-------- IF number
-		x_text = xmin*0.2 + xmax*0.8; y_text = ymin*0.1 + ymax*0.9;
-		sprintf(text, "IF = %d", st_index); cpgsci(3);	cpgtext( x_text, y_text, text );
+		x_text = xmin*0.3 + xmax*0.7; y_text = ymin*0.1 + ymax*0.9;
+		sprintf(text, "IF=%d Peak=%7.2f dB", st_index, peakVal); cpgsci(3);	cpgtext( x_text, y_text, text );
 	}
 	//-------- UTC
 	x_text = xmin*0.3 + xmax*0.7; y_text = 0.05*ymin + 0.95* ymax;
