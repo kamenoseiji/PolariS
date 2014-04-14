@@ -24,11 +24,12 @@
 #define	K5HEAD_SIZE		32			// K5 Header size
 #define	MAX_SAMPLE_BUF	32000000	// 256 Mbit = 32 MB
 #define	HALFBUF			16000000	// 16Mbytes per 1/2 sec
+#define PARTNUM			2			// Number of Parts in 1 sec
 #define	NFFT		(param_ptr->segLen)		// FFT points
 #define	NFFT2		(param_ptr->num_ch)		// Half of FFT points
 #define	NFFTC		(param_ptr->num_ch + 1)	// NFFT/2+1 = Number of spectral points
 #define	NsegSec		(param_ptr->segNum)		// # of segments per sec
-#define	NsegSec2	(param_ptr->segNum/ 2)	// # of segments per 1/2 sec (64)
+#define	NsegPart	(param_ptr->segNum/ PARTNUM)	// # of segments per part
 #define	Nif				4			// Number of IF
 #define	Ncross			4			// Number of correlations <XX*>, <XY*>, <YX*>, <YY*>
 #define	SEGDATA_SIZE	Nif* param_ptr->segLen* param_ptr->segNum* sizeof(float)

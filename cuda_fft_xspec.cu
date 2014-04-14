@@ -9,7 +9,6 @@
 #include <math.h>
 #include </usr/local/cuda-5.5/samples/common/inc/timer.h>
 #include "cuda_polaris.inc"
-#define	PARTNUM 2
 #define SCALEFACT 2.0/(NFFT* NsegSec* PARTNUM)
 
 extern int gaussBit(int, unsigned int *, double *, double *);
@@ -56,18 +55,18 @@ main(
 	k5head_ptr = (unsigned char *)shmat(param_ptr->shrd_k5head_id, NULL, SHM_RDONLY);
 //------------------------------------------ Prepare for CuFFT
 	cudaMalloc( (void **)&cuk5data_ptr, MAX_SAMPLE_BUF);
-	cudaMalloc( (void **)&cuRealData, Nif* NsegSec2* NFFT * sizeof(cufftReal) );
-	cudaMalloc( (void **)&cuSpecData, Nif* NsegSec2* NFFTC* sizeof(cufftComplex) );
+	cudaMalloc( (void **)&cuRealData, Nif* NsegPart* NFFT * sizeof(cufftReal) );
+	cudaMalloc( (void **)&cuSpecData, Nif* NsegPart* NFFTC* sizeof(cufftComplex) );
 	cudaMalloc( (void **)&cuPowerSpec, Nif* NFFT2* sizeof(float));
 	cudaMalloc( (void **)&cuXSpec, 2* NFFT2* sizeof(float2));
 
 	if(cudaGetLastError() != cudaSuccess){
 		fprintf(stderr, "Cuda Error : Failed to allocate memory.\n"); return(-1); }
 
-	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nif* NsegSec2 ) != CUFFT_SUCCESS){
+	if(cufftPlan1d(&cufft_plan, NFFT, CUFFT_R2C, Nif* NsegPart ) != CUFFT_SUCCESS){
 		fprintf(stderr, "Cuda Error : Failed to create plan.\n"); return(-1); }
 //------------------------------------------ Parameters for S-part format
-//	printf("NsegSec2 = %d\n", NsegSec2);
+//	printf("NsegPart = %d\n", NsegPart);
 	segment_offset(param_ptr, offset);
 	nlevel = 0x01<<(param_ptr->qbit);		// Number of levels = 2^qbit
 //------------------------------------------ K5 Header and Data
@@ -108,14 +107,14 @@ main(
 			cudaThreadSynchronize();
 			Dg.x=NFFT/512; Dg.y=1; Dg.z=1;
 			if( nlevel == 256){
-				for(index=0; index < NsegSec2; index ++){
-					seg_index = part_index* NsegSec2 + index;
+				for(index=0; index < NsegPart; index ++){
+					seg_index = part_index* NsegPart + index;
 					segform8bit<<<Dg, Db>>>( &cuk5data_ptr[4* offset[seg_index]], &cuRealData[index* Nif* NFFT], NFFT);
 				}
 				bitDist8( HALFBUF, &k5data_ptr[part_index* HALFBUF], bitDist);
 			} else{
-				for(index=0; index < NsegSec2; index ++){
-					seg_index = part_index* NsegSec2 + index;
+				for(index=0; index < NsegPart; index ++){
+					seg_index = part_index* NsegPart + index;
 					segform4bit<<<Dg, Db>>>( &cuk5data_ptr[2* offset[seg_index]], &cuRealData[index* Nif* NFFT], NFFT);
 				}
 				bitDist4( HALFBUF, &k5data_ptr[part_index* HALFBUF], bitDist);
@@ -128,13 +127,13 @@ main(
 
 			//---- Auto Corr
 			Dg.x= NFFTC/512; Dg.y=1; Dg.z=1;
-			for(seg_index=0; seg_index<NsegSec2; seg_index++){
+			for(seg_index=0; seg_index<NsegPart; seg_index++){
 				for(index=0; index<Nif; index++){
 					accumPowerSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif + index)* NFFTC], &cuPowerSpec[index* NFFT2],  NFFT2);
 				}
 			}
 			//---- Cross Corr
-			for(seg_index=0; seg_index<NsegSec2; seg_index++){
+			for(seg_index=0; seg_index<NsegPart; seg_index++){
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif)* NFFTC], &cuSpecData[(seg_index* Nif + 2)* NFFTC], cuXSpec, NFFT2);
 				accumCrossSpec<<<Dg, Db>>>( &cuSpecData[(seg_index* Nif + 1)*NFFTC], &cuSpecData[(seg_index* Nif + 3)*NFFTC], &cuXSpec[NFFT2], NFFT2);
 			}
