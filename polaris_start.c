@@ -99,16 +99,16 @@ main(
 	if( param_ptr->validity & PGPLOT ){
 		strcpy(cmd[1], pgdev);
 		if( fork() == 0){
-			pid = getpid(); sprintf(cmd[0], "shm_spec_view");
+			pid = getpid(); sprintf(cmd[0], "shm_power_view");
 			printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
-			if( execl( SPEC_VIEW, cmd[0], cmd[1], (char *)NULL ) == -1){
+			if( execl( POWER_VIEW, cmd[0], cmd[1], (char *)NULL ) == -1){
 				perror("Can't Create Chiled Proces!!\n"); return(-1);
 			}
 		}
 		if( fork() == 0){
-			pid = getpid(); sprintf(cmd[0], "shm_power_view");
+			pid = getpid(); sprintf(cmd[0], "shm_spec_view");
 			printf(" Exec %s as Chiled Process [PID = %d]\n", cmd[0], pid);
-			if( execl( POWER_VIEW, cmd[0], cmd[1], (char *)NULL ) == -1){
+			if( execl( SPEC_VIEW, cmd[0], cmd[1], (char *)NULL ) == -1){
 				perror("Can't Create Chiled Proces!!\n"); return(-1);
 			}
 		}

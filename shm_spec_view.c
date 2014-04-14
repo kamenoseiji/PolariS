@@ -33,7 +33,7 @@ main(
 	}
 	xspec_ptr = shmat(param_ptr->shrd_xspec_id, NULL, SHM_RDONLY);
 //------------------------------------------ K5 Header and Data
-
+	sleep(1);									// Timing adjustment for PGPLOT device
 	setvbuf(stdout, (char *)NULL, _IONBF, 0);	// Disable stdout cache
 	cpgbeg(1, argv[1], 1, 1);
 	sprintf(xlabel, "Frequency [Hz]\0"); cpg_setup(xlabel);
