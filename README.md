@@ -1,6 +1,6 @@
 PolariS
 =======
-The software to form the Polarimetric Spectrometer
+This is the software package to form the Polarimetric Spectrometer. Detailed description on the design, specifications, and performance is described in the paper to appear in the Journal of Astronomical Instrumentation. The preprint is available on astro-ph.IM: http://arxiv.org/abs/1412.1256
 The software is released under the MIT License. See LICENSE.txt.
 
 
