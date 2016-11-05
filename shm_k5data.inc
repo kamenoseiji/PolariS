@@ -25,6 +25,8 @@
 #define	MAX_SAMPLE_BUF	32000000	// 256 Mbit = 32 MB
 #define	HALFBUF			16000000	// 16Mbytes per 1/2 sec
 #define PARTNUM			2			// Number of Parts in 1 sec
+#define	MAX_CH_VIEW		1024		// Maximum number of channels to plot
+#define	NST 		(param_ptr->num_st)		// Number of streams
 #define	NFFT		(param_ptr->segLen)		// FFT points
 #define	NFFT2		(param_ptr->num_ch)		// Half of FFT points
 #define	NFFTC		(param_ptr->num_ch + 1)	// NFFT/2+1 = Number of spectral points
